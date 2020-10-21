@@ -77,6 +77,16 @@ type variableProperties struct {
 
 		Malloc_scudo_tsds_max struct {
 			Cflags []string `android:"arch_variant"`
+                } `android:"arch_variant"`
+
+		Malloc_low_memory_libc32 struct {
+			Cflags              []string `android:"arch_variant"`
+			Shared_libs         []string `android:"arch_variant"`
+			Whole_static_libs   []string `android:"arch_variant"`
+			Static_libs         []string `android:"arch_variant"`
+			Exclude_static_libs []string `android:"arch_variant"`
+			Srcs                []string `android:"arch_variant"`
+			Header_libs         []string `android:"arch_variant"`
 		} `android:"arch_variant"`
 
 		Malloc_zero_contents struct {
@@ -293,6 +303,7 @@ type ProductVariables struct {
 	Skip_boot_jars_check         *bool    `json:",omitempty"`
 	Malloc_low_memory            *bool    `json:",omitempty"`
 	Malloc_scudo_tsds_max        *bool    `json:",omitempty"`
+	Malloc_low_memory_libc32     *bool    `json:",omitempty"`
 	Malloc_zero_contents         *bool    `json:",omitempty"`
 	Malloc_pattern_fill_contents *bool    `json:",omitempty"`
 	Safestack                    *bool    `json:",omitempty"`
@@ -874,6 +885,7 @@ func (v *ProductVariables) SetDefaultConfig() {
 
 		Malloc_low_memory:            boolPtr(false),
 		Malloc_scudo_tsds_max:        boolPtr(false),
+		Malloc_low_memory_libc32:     boolPtr(false),
 		Malloc_zero_contents:         boolPtr(true),
 		Malloc_pattern_fill_contents: boolPtr(false),
 		Safestack:                    boolPtr(false),
