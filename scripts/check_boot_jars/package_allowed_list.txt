@@ -236,6 +236,16 @@ vendor\.lineage\.touch.*
 # NV adds
 com\.nvidia
 com\.nvidia\..*
+###################################################
+# CodeAurora IMS functionality needed by frameworks/opt/telephony
+# as part of "ims-ext-common"
+org\.codeaurora\.ims.*
+# telephony-ext:
+org\.codeaurora\.internal.*
+
+###################################################
+# IFAA Manager used for Alipay and/or WeChat payment
+org\.ifaa\.android\.manager.*
 
 # QC adds
 com.qualcomm.qti
@@ -254,3 +264,14 @@ org\.ifaa\.android\.manager.*
 
 # LMODroid adds
 com\.libremobileos.*
+
+###################################################
+# ONEPLUS
+com.oplus.*
+net.oneplus.*
+oplus.*
+vendor.oplus.*
+com.oneplus.*
+vendor.oneplus.*
+
+###################################################
