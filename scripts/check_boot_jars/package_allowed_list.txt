@@ -225,6 +225,14 @@ vendor\.mediatek\..*
 com\.nothing
 com\.nothing\..*
 
+# Lineage adds
+lineageos\.platform
+org\.lineageos\.platform\.internal
+vendor\.lineage\..*
+vendor\.lineage\.health.*
+vendor\.lineage\.livedisplay.*
+vendor\.lineage\.touch.*
+
 # NV adds
 com\.nvidia
 com\.nvidia\..*
