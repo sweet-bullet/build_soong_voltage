@@ -121,6 +121,8 @@ var ignore_androidmks []string = []string{
 	// Empty Android.mk in package's top directory
 	"external/proguard/",
 	"external/swig/",
+        "external/e2fsprogs/",
+        "external/ant-wireless/",
 	"toolchain/",
 	"vendor/google/graphics/",
 }
