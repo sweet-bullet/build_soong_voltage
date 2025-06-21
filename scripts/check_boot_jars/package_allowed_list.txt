@@ -237,6 +237,12 @@ vendor\.lineage\.touch.*
 com\.nvidia
 com\.nvidia\..*
 ###################################################
+
+# Voltage adds
+com.voltage.*
+vendor.voltage.*
+
+###################################################
 # CodeAurora IMS functionality needed by frameworks/opt/telephony
 # as part of "ims-ext-common"
 org\.codeaurora\.ims.*
