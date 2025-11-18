@@ -36,6 +36,7 @@ func SetupOutDir(ctx Context, config Config) {
 	ensureEmptyFileExists(ctx, filepath.Join(config.OutDir(), "CleanSpec.mk"))
 	ensureDirectoriesExist(ctx, config.SoongOutDir())
 	ensureDirectoriesExist(ctx, filepath.Join(config.SoongOutDir(), "action_sandboxing_workdir"))
+	ensureDirectoriesExist(ctx, config.TempDir())
 
 	// The ninja_build file is used by our buildbots to understand that the output
 	// can be parsed as ninja output.
