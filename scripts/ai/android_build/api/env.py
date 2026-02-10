@@ -16,6 +16,7 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Optional
+from interface.errors import ToolError
 from .constants import ENVSETUP_PATH
 
 class BuildContext:
@@ -31,7 +32,7 @@ class BuildContext:
         if self.env_overrides:
             found_restricted = restricted_keys.intersection(self.env_overrides.keys())
             if found_restricted:
-                raise ValueError(
+                raise ToolError(
                     f"The following environment variables are reserved and cannot be passed in env_vars: {', '.join(sorted(found_restricted))}. "
                     "Please use the top-level arguments (product, release, variant) instead."
                 )
@@ -105,7 +106,7 @@ class EnvSnapshot:
         stdout, stderr = process.communicate()
 
         if process.returncode != 0:
-            raise RuntimeError(f"Failed to refresh environment for {lunch_target}:\n{stderr}")
+            raise ToolError(f"Failed to refresh environment for {lunch_target}:\n{stderr}")
 
         env: dict[str, str] = json.loads(stdout)
         self.save(env)
@@ -134,5 +135,3 @@ class EnvSnapshot:
                 return env
 
         return self.refresh()
-
-

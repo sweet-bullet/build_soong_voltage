@@ -24,6 +24,7 @@ from typing import Any, Optional, Union
 from api.env import BuildContext
 from interface.registry import TOOLS
 from interface.schema import get_docstring_summary
+from interface.errors import ToolError
 import interface.defs
 
 # Configure logging to stderr to avoid corrupting stdout
@@ -36,10 +37,19 @@ class JsonRpcResponse:
     jsonrpc: str = "2.0"
 
 @dataclasses.dataclass(frozen=True)
-class JsonRpcErrorResponse:
-    id: Any
-    result: dict[str, Any]
-    jsonrpc: str = "2.0"
+class JsonRpcErrorResponse(JsonRpcResponse):
+    """
+    Represents a tool or protocol error (masked as success with isError: True).
+    The result object MUST contain isError: True.
+    """
+    def __init__(self, id: Any, code: int, message: str):
+        result = {
+            "content": [{"type": "text", "text": f"Error {code}: {message}"}],
+            "isError": True
+        }
+        object.__setattr__(self, "id", id)
+        object.__setattr__(self, "result", result)
+        object.__setattr__(self, "jsonrpc", "2.0")
 
 @dataclasses.dataclass(frozen=True)
 class JsonRpcNotification:
@@ -91,7 +101,7 @@ class MCPServer:
             except Exception:
                 logging.error(f"Unexpected error in main loop:\n{traceback.format_exc()}")
 
-    def process_request(self, request: dict[str, Any]) -> Optional[Union[JsonRpcResponse, JsonRpcErrorResponse]]:
+    def process_request(self, request: dict[str, Any]) -> Optional[JsonRpcResponse]:
         """
         Processes a single JSON-RPC request and returns the response object (or None for notifications).
         """
@@ -157,14 +167,15 @@ class MCPServer:
                 return self.create_error(request_id, -32000, str(e))
             return None
 
-    def handle_tool_call(self, request_id: Any, params: dict[str, Any]) -> Union[JsonRpcResponse, JsonRpcErrorResponse]:
+    def handle_tool_call(self, request_id: Any, params: dict[str, Any]) -> JsonRpcResponse:
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
         # Spec: "To request progress notifications, the client MUST include a progressToken property in the params of the request."
         progress_token = params.get("progressToken")
 
         if tool_name not in TOOLS:
-            raise ValueError(f"Tool not found: {tool_name}")
+            # We treat "Tool not found" as a generic error too, to be safe.
+            return self.create_error(request_id, -32601, f"Tool not found: {tool_name}")
 
         tool_def = TOOLS[tool_name]
 
@@ -177,7 +188,7 @@ class MCPServer:
                  env_overrides = getattr(tool_args_obj, 'env_vars', None)
                  ctx = BuildContext(tool_args_obj.product, tool_args_obj.release, tool_args_obj.variant, env_overrides=env_overrides)
             else:
-                 raise ValueError("Tool arguments must contain product, release, and variant.")
+                 raise ToolError("Tool arguments must contain product, release, and variant.")
 
             # Prepare Progress Callback
             progress_callback = None
@@ -223,10 +234,14 @@ class MCPServer:
             tb = traceback.format_exc()
             return self.create_error(request_id, -32603, f"Tool execution failed: {e}\n{tb}")
 
-        except Exception:
-            # Internal Error
+        except ToolError as e:
+            # Clean Tool Error (no traceback)
+            return self.create_error(request_id, -32603, str(e))
+
+        except Exception as e:
+            # Tool Execution Error (captured as result with isError: True)
             tb = traceback.format_exc()
-            return self.create_error(request_id, -32603, f"Tool execution failed:\n{tb}")
+            return self.create_error(request_id, -32603, f"Tool execution failed: {e}\n{tb}")
 
     def send_progress(self, progress_token: Any, progress: float, total: Optional[float] = None) -> None:
         params = {
@@ -246,13 +261,7 @@ class MCPServer:
         return JsonRpcResponse(id=request_id, result=result)
 
     def create_error(self, request_id: Any, code: int, message: str) -> JsonRpcErrorResponse:
-        return JsonRpcErrorResponse(
-            id=request_id,
-            result={
-                "isError": True,
-                "content": [{"type": "text", "text": message}]
-            }
-        )
+        return JsonRpcErrorResponse(request_id, code, message)
 
     def _write_json(self, data: Any) -> None:
         def default_encoder(obj: Any) -> dict[str, Any]:

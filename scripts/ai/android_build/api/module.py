@@ -19,6 +19,7 @@ from typing import Any
 from .env import BuildContext
 from .config import get_build_vars
 from .build import build_targets
+from interface.errors import ToolError
 
 MODULE_INFO_JSON = "module-info.json"
 
@@ -49,7 +50,9 @@ _MODULE_INFO_MTIME: float = 0.0
 def _get_product_out(ctx: BuildContext) -> Path:
     """Resolves the PRODUCT_OUT directory."""
     env = ctx.env
-    android_build_top = str(env.get("ANDROID_BUILD_TOP"))
+    android_build_top = env.get("ANDROID_BUILD_TOP")
+    if not android_build_top:
+        raise ToolError("ANDROID_BUILD_TOP not found in environment.")
 
     # Try getting it from build vars first (most accurate)
     try:
@@ -68,7 +71,9 @@ def _get_product_out(ctx: BuildContext) -> Path:
         return Path(str(env.get("ANDROID_PRODUCT_OUT")))
 
     # Last resort fallback
-    product = str(env.get("TARGET_PRODUCT"))
+    product = env.get("TARGET_PRODUCT")
+    if not product:
+        raise ToolError("TARGET_PRODUCT not found in environment.")
     return Path(android_build_top) / "out/target/product" / product
 
 def _load_json_db(ctx: BuildContext, force_refresh: bool = False) -> dict[str, ModuleInfo]:
@@ -86,7 +91,7 @@ def _load_json_db(ctx: BuildContext, force_refresh: bool = False) -> dict[str, M
         build_targets(ctx, targets=["module-info"], clean=False)
 
         if not module_info_path.exists():
-            raise RuntimeError(f"Build failed to generate {module_info_path}")
+            raise ToolError(f"Build failed to generate {module_info_path}")
 
     # Step 2: Check mtime to see if we need to reload from disk
     current_mtime = module_info_path.stat().st_mtime
@@ -120,5 +125,5 @@ def get_module_info(ctx: BuildContext, module_name: str, force_refresh: bool = F
     """
     db = _load_json_db(ctx, force_refresh)
     if module_name not in db:
-        raise KeyError(f"Module '{module_name}' not found in module-info.json")
+        raise ToolError(f"Module '{module_name}' not found in module-info.json")
     return db[module_name]

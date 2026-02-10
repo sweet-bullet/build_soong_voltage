@@ -20,6 +20,7 @@ from api.env import BuildContext
 from api import env, build, ninja, config, module
 from .schema import ToolArgs
 from .registry import register_tool
+from .errors import ToolError
 
 # ... (Args definitions remain same) ...
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -68,7 +69,7 @@ def raise_reanalysis_error(build_failure: build.BuildFailure) -> None:
     for m in str.splitlines(build_failure.message):
         if "Reanalysis will run due to" in m:
             msg = m
-    raise ValueError(f"Configuration change detected: {msg}\nRerun the tool with 'confirm_analysis=True' if this is intended.")
+    raise ToolError(f"Configuration change detected: {msg}\nRerun the tool with 'confirm_analysis=True' if this is intended.")
 
 @register_tool("build", BuildArgs, wrapped_func=build.build_targets)
 def run_build(ctx: BuildContext, args: BuildArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
@@ -83,7 +84,7 @@ def run_build(ctx: BuildContext, args: BuildArgs, progress_callback: Optional[Ca
         else:
              print(json.dumps(dataclasses.asdict(result), indent=2))
              # Actual build error
-             raise ValueError("Build Failed")
+             raise ToolError("Build Failed")
 
     print(json.dumps(dataclasses.asdict(result), indent=2))
 
@@ -95,7 +96,7 @@ def _check_env_consistency(ctx: BuildContext, confirm_analysis: bool) -> None:
             if failures:
                 raise_reanalysis_error(failures[0])
             else:
-                raise ValueError("Build failed during environment consistency check.")
+                raise ToolError("Build failed during environment consistency check.")
 
 @register_tool("ninja_query", NinjaQueryArgs, wrapped_func=ninja.query_ninja_target)
 def run_ninja_query(ctx: BuildContext, args: NinjaQueryArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:

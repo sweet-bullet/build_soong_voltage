@@ -26,6 +26,8 @@ sdk_root = Path(__file__).resolve().parent.parent
 if str(sdk_root) not in sys.path:
     sys.path.insert(0, str(sdk_root))
 
+from interface.errors import ToolError
+
 from api.env import BuildContext
 # Import defs to ensure tools are registered
 import interface.defs
@@ -134,7 +136,7 @@ def main() -> None:
              args_env_vars = getattr(tool_args_obj, 'env_vars', None)
              ctx = BuildContext(tool_args_obj.product, tool_args_obj.release, tool_args_obj.variant, args_env_vars)
         else:
-             raise ValueError(f"Tool arguments for '{args.command}' must contain product, release, and variant.")
+             raise ToolError(f"Tool arguments for '{args.command}' must contain product, release, and variant.")
 
         tool_def.implementation(ctx, tool_args_obj)
     except Exception as e:

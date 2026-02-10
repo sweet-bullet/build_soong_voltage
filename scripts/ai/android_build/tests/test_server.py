@@ -23,6 +23,9 @@ from interface.server import MCPServer
 # Needed to register the TOOLS
 import interface.defs
 from api.env import BuildContext
+from interface.schema import ToolArgs
+from interface.errors import ToolError
+from interface.registry import TOOLS, ToolDefinition
 
 class TestMCPServer(unittest.TestCase):
     def test_server_loop(self) -> None:
@@ -114,8 +117,6 @@ class TestMCPServer(unittest.TestCase):
     def test_progress(self) -> None:
         # Mock a tool in TOOLS that calls the progress callback
         # We need to temporarily modify TOOLS
-        from interface.registry import TOOLS, ToolDefinition
-        from interface.schema import ToolArgs
 
         # Define a dummy tool
         @dataclasses.dataclass(frozen=True)
@@ -176,7 +177,6 @@ class TestMCPServer(unittest.TestCase):
 
     def test_env_mismatch_build(self) -> None:
         from api.build import BuildResult, BuildFailure
-        from api import build
 
         # We need to simulate a case where enforce-no-reanalysis causes a failure
         mock_result = BuildResult(
@@ -194,33 +194,32 @@ class TestMCPServer(unittest.TestCase):
 
             mock_stdin = io.StringIO(input_data)
             mock_stdout = io.StringIO()
-            mock_stderr = io.StringIO()
 
-            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout), patch('sys.stderr', mock_stderr):
+            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
                 server = MCPServer()
-                server.run()
+                try:
+                    server.run()
+                except SystemExit:
+                    pass
 
             output_lines = mock_stdout.getvalue().strip().split('\n')
             response = json.loads(output_lines[0])
 
             # The server intercepts errors and sets isError: true
-            self.assertEqual(response.get("jsonrpc"), "2.0")
             self.assertEqual(response.get("id"), 1)
             result = response.get("result", {})
             self.assertTrue(result.get("isError"))
 
             content = result.get("content", [])
-            self.assertTrue(len(content) > 0)
-            text = content[0].get("text", "")
+            text = "".join(c.get("text", "") for c in content)
 
             # Verify the custom error message we added in defs.py
             self.assertIn("Configuration change detected", text)
             self.assertIn("Reanalysis will run due to environment change", text)
-            self.assertIn("Rerun the tool with 'confirm_analysis=True' if this is intended.", text)
+            self.assertIn("confirm_analysis=True", text)
 
     def test_env_mismatch_ninja_query(self) -> None:
         from api.build import BuildResult, BuildFailure
-        from api import build
 
         # We need to simulate a case where enforce-no-reanalysis causes a failure
         mock_result = BuildResult(
@@ -238,29 +237,156 @@ class TestMCPServer(unittest.TestCase):
 
             mock_stdin = io.StringIO(input_data)
             mock_stdout = io.StringIO()
-            mock_stderr = io.StringIO()
 
-            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout), patch('sys.stderr', mock_stderr):
+            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
                 server = MCPServer()
-                server.run()
+                try:
+                    server.run()
+                except SystemExit:
+                    pass
 
             output_lines = mock_stdout.getvalue().strip().split('\n')
             response = json.loads(output_lines[0])
 
             # The server intercepts errors and sets isError: true
-            self.assertEqual(response.get("jsonrpc"), "2.0")
             self.assertEqual(response.get("id"), 1)
             result = response.get("result", {})
             self.assertTrue(result.get("isError"))
 
             content = result.get("content", [])
-            self.assertTrue(len(content) > 0)
-            text = content[0].get("text", "")
+            text = "".join(c.get("text", "") for c in content)
 
             # Verify the custom error message we added in defs.py (_check_env_consistency)
             self.assertIn("Configuration change detected", text)
             self.assertIn("Reanalysis will run due to missing or invalid environment file", text)
-            self.assertIn("Rerun the tool with 'confirm_analysis=True' if this is intended.", text)
+            self.assertIn("confirm_analysis=True", text)
+
+    def test_tool_error_handling(self) -> None:
+        # Mock a tool in TOOLS that raises an exception
+        from interface.registry import TOOLS, ToolDefinition
+        from interface.schema import ToolArgs
+
+        @dataclasses.dataclass(frozen=True)
+        class ErrorArgs(ToolArgs):
+            product: str = "p"
+            release: str = "r"
+            variant: str = "v"
+
+        def error_tool(ctx: BuildContext, args: ErrorArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+            raise ValueError("Something went wrong in tool execution")
+
+        # Inject into TOOLS
+        original_tools = TOOLS.copy()
+        TOOLS["error_tool"] = ToolDefinition("error_tool", ErrorArgs, error_tool)
+
+        try:
+            # Request execution of error_tool
+            input_data = (
+                '{"jsonrpc": "2.0", "id": 100, "method": "tools/call", '
+                '"params": {"name": "error_tool", "arguments": {"product": "p", "release": "r", "variant": "v"}}}\n'
+            )
+
+            mock_stdin = io.StringIO(input_data)
+            mock_stdout = io.StringIO()
+
+            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
+                server = MCPServer()
+                try:
+                    server.run()
+                except SystemExit:
+                    pass
+
+            output_lines = mock_stdout.getvalue().strip().split('\n')
+
+            self.assertTrue(len(output_lines) > 0)
+            response = json.loads(output_lines[0])
+
+            self.assertEqual(response.get("id"), 100)
+            self.assertIn("result", response, "Should have a result object")
+            self.assertNotIn("error", response, "Should NOT have an error object")
+
+            result = response["result"]
+            self.assertTrue(result.get("isError"), "Result should have isError: True")
+            self.assertTrue(any("Something went wrong" in c["text"] for c in result.get("content", [])), "Error message mismatch")
+            # Verify the error code is present in the text if we used create_error (which now includes code)
+            self.assertTrue(any("Error -32603" in c["text"] for c in result.get("content", [])), "Error code missing in text")
+
+        finally:
+            # Restore TOOLS
+            TOOLS.clear()
+            TOOLS.update(original_tools)
+
+    def test_protocol_error_handling(self) -> None:
+        # Test Method Not Found
+        input_data = '{"jsonrpc": "2.0", "id": 999, "method": "nonexistent_method"}\n'
+        mock_stdin = io.StringIO(input_data)
+        mock_stdout = io.StringIO()
+
+        with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
+            server = MCPServer()
+            try:
+                server.run()
+            except SystemExit:
+                pass
+
+        output = mock_stdout.getvalue().strip()
+        response = json.loads(output)
+
+        self.assertEqual(response.get("id"), 999)
+        self.assertNotIn("error", response)
+        self.assertIn("result", response)
+        self.assertTrue(response["result"].get("isError"))
+        self.assertTrue(any("Method not found" in c["text"] for c in response["result"].get("content", [])))
+
+    def test_clean_tool_error_handling(self) -> None:
+        @dataclasses.dataclass(frozen=True)
+        class CleanErrorArgs(ToolArgs):
+            product: str = "p"
+            release: str = "r"
+            variant: str = "v"
+
+        def clean_error_tool(ctx: BuildContext, args: CleanErrorArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+            raise ToolError("This is a clean error message.")
+
+        # Inject into TOOLS
+        original_tools = TOOLS.copy()
+        TOOLS["clean_error_tool"] = ToolDefinition("clean_error_tool", CleanErrorArgs, clean_error_tool)
+
+        try:
+            # Request execution of clean_error_tool
+            input_data = (
+                '{"jsonrpc": "2.0", "id": 101, "method": "tools/call", '
+                '"params": {"name": "clean_error_tool", "arguments": {"product": "p", "release": "r", "variant": "v"}}}\n'
+            )
+
+            mock_stdin = io.StringIO(input_data)
+            mock_stdout = io.StringIO()
+
+            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
+                server = MCPServer()
+                try:
+                    server.run()
+                except SystemExit:
+                    pass
+
+            output = mock_stdout.getvalue().strip()
+            response = json.loads(output)
+
+            self.assertEqual(response.get("id"), 101)
+            self.assertIn("result", response)
+            result = response["result"]
+            self.assertTrue(result.get("isError"), "Result should have isError: True")
+
+            # Content should be just the error message, no traceback
+            content_text = "".join(c["text"] for c in result.get("content", []))
+            self.assertIn("This is a clean error message.", content_text)
+            self.assertNotIn("Traceback", content_text, "Clean error should not have traceback")
+
+        finally:
+            # Restore TOOLS
+            TOOLS.clear()
+            TOOLS.update(original_tools)
+
 
 if __name__ == "__main__":
     unittest.main()

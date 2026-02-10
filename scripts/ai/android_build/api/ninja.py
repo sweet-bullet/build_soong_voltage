@@ -19,8 +19,9 @@ from pathlib import Path
 from .env import BuildContext
 from .config import get_build_vars
 from .constants import NINJA_BIN_PATH
+from interface.errors import ToolError
 
-class NinjaTargetNotFoundError(Exception):
+class NinjaTargetNotFoundError(ToolError):
     """Raised when a Ninja target is not found."""
     pass
 
@@ -42,7 +43,7 @@ def _get_ninja_runner(ctx: BuildContext) -> list[str]:
     env = ctx.env
     android_build_top = env.get("ANDROID_BUILD_TOP")
     if not android_build_top:
-        raise ValueError("ANDROID_BUILD_TOP not found in environment")
+        raise ToolError("ANDROID_BUILD_TOP not found in environment")
 
     # Resolve OUT_DIR
     vars_dict = get_build_vars(ctx, "OUT_DIR")
@@ -91,7 +92,7 @@ def query_ninja_target(ctx: BuildContext, target: str) -> NinjaQuery:
     except subprocess.CalledProcessError as e:
         if "unknown target" in e.stderr:
             raise NinjaTargetNotFoundError(f"Target '{target}' not found: {e.stderr.strip()}")
-        raise RuntimeError(f"Ninja query failed: {e.stderr.strip()}")
+        raise ToolError(f"Ninja query failed: {e.stderr.strip()}")
 
     class NinjaQuerySection(Enum):
         INPUT = 1
@@ -234,4 +235,4 @@ def get_command(ctx: BuildContext, target: str, last_n: int = 1) -> list[str]:
         return lines[-last_n:]
 
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Ninja commands query failed: {e.stderr.strip()}")
+        raise ToolError(f"Ninja commands query failed: {e.stderr.strip()}")

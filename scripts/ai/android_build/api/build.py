@@ -19,8 +19,9 @@ from typing import Any, Callable, Optional
 from pathlib import Path
 from .env import BuildContext
 from .constants import SOONG_UI_BASH
+from interface.errors import ToolError
 
-class BuildError(Exception):
+class BuildError(ToolError):
     """Custom exception for build failures."""
     def __init__(self, message: str, exit_code: int, logs: str) -> None:
         super().__init__(message)
