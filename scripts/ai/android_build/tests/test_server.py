@@ -35,9 +35,10 @@ class TestMCPServer(unittest.TestCase):
 
         mock_stdin = io.StringIO(input_data)
         mock_stdout = io.StringIO()
+        mock_stderr = io.StringIO()
 
-        # Patch sys.stdin and sys.stdout
-        with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
+        # Patch sys.stdin, sys.stdout, and sys.stderr
+        with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout), patch('sys.stderr', mock_stderr):
             server = MCPServer()
             try:
                 server.run()
@@ -67,8 +68,9 @@ class TestMCPServer(unittest.TestCase):
 
         mock_stdin = io.StringIO(input_data)
         mock_stdout = io.StringIO()
+        mock_stderr = io.StringIO()
 
-        with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
+        with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout), patch('sys.stderr', mock_stderr):
             server = MCPServer()
             try:
                 server.run()
@@ -100,8 +102,9 @@ class TestMCPServer(unittest.TestCase):
 
         mock_stdin = io.StringIO(input_data)
         mock_stdout = io.StringIO()
+        mock_stderr = io.StringIO()
 
-        with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
+        with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout), patch('sys.stderr', mock_stderr):
             server = MCPServer()
             # exit will raise SystemExit
             with self.assertRaises(SystemExit) as cm:
@@ -138,8 +141,9 @@ class TestMCPServer(unittest.TestCase):
 
             mock_stdin = io.StringIO(input_data)
             mock_stdout = io.StringIO()
+            mock_stderr = io.StringIO()
 
-            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout):
+            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout), patch('sys.stderr', mock_stderr):
                 server = MCPServer()
                 # Run one loop iteration effectively
                 # server.run() loops until EOF
@@ -169,6 +173,94 @@ class TestMCPServer(unittest.TestCase):
             # Restore TOOLS
             TOOLS.clear()
             TOOLS.update(original_tools)
+
+    def test_env_mismatch_build(self) -> None:
+        from api.build import BuildResult, BuildFailure
+        from api import build
+
+        # We need to simulate a case where enforce-no-reanalysis causes a failure
+        mock_result = BuildResult(
+            success=False,
+            exit_code=1,
+            failure_details=[BuildFailure(message="Reanalysis will run due to environment change. Changed environment variables: [EMMA_INSTRUMENT]")]
+        )
+
+        with patch('api.build.build_targets', return_value=mock_result):
+            # Send a build request with confirm_analysis=False
+            input_data = (
+                '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", '
+                '"params": {"name": "build", "arguments": {"product": "p", "release": "r", "variant": "v", "targets": ["nothing"], "confirm_analysis": false}}}\n'
+            )
+
+            mock_stdin = io.StringIO(input_data)
+            mock_stdout = io.StringIO()
+            mock_stderr = io.StringIO()
+
+            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout), patch('sys.stderr', mock_stderr):
+                server = MCPServer()
+                server.run()
+
+            output_lines = mock_stdout.getvalue().strip().split('\n')
+            response = json.loads(output_lines[0])
+
+            # The server intercepts errors and sets isError: true
+            self.assertEqual(response.get("jsonrpc"), "2.0")
+            self.assertEqual(response.get("id"), 1)
+            result = response.get("result", {})
+            self.assertTrue(result.get("isError"))
+
+            content = result.get("content", [])
+            self.assertTrue(len(content) > 0)
+            text = content[0].get("text", "")
+
+            # Verify the custom error message we added in defs.py
+            self.assertIn("Configuration change detected", text)
+            self.assertIn("Reanalysis will run due to environment change", text)
+            self.assertIn("Rerun the tool with 'confirm_analysis=True' if this is intended.", text)
+
+    def test_env_mismatch_ninja_query(self) -> None:
+        from api.build import BuildResult, BuildFailure
+        from api import build
+
+        # We need to simulate a case where enforce-no-reanalysis causes a failure
+        mock_result = BuildResult(
+            success=False,
+            exit_code=1,
+            failure_details=[BuildFailure(message="Reanalysis will run due to missing or invalid environment file")]
+        )
+
+        with patch('api.build.build_targets', return_value=mock_result):
+            # Send a ninja_query request with confirm_analysis=False
+            input_data = (
+                '{"jsonrpc": "2.0", "id": 1, "method": "tools/call", '
+                '"params": {"name": "ninja_query", "arguments": {"product": "p", "release": "r", "variant": "v", "target": "SystemUI", "confirm_analysis": false}}}\n'
+            )
+
+            mock_stdin = io.StringIO(input_data)
+            mock_stdout = io.StringIO()
+            mock_stderr = io.StringIO()
+
+            with patch('sys.stdin', mock_stdin), patch('sys.stdout', mock_stdout), patch('sys.stderr', mock_stderr):
+                server = MCPServer()
+                server.run()
+
+            output_lines = mock_stdout.getvalue().strip().split('\n')
+            response = json.loads(output_lines[0])
+
+            # The server intercepts errors and sets isError: true
+            self.assertEqual(response.get("jsonrpc"), "2.0")
+            self.assertEqual(response.get("id"), 1)
+            result = response.get("result", {})
+            self.assertTrue(result.get("isError"))
+
+            content = result.get("content", [])
+            self.assertTrue(len(content) > 0)
+            text = content[0].get("text", "")
+
+            # Verify the custom error message we added in defs.py (_check_env_consistency)
+            self.assertIn("Configuration change detected", text)
+            self.assertIn("Reanalysis will run due to missing or invalid environment file", text)
+            self.assertIn("Rerun the tool with 'confirm_analysis=True' if this is intended.", text)
 
 if __name__ == "__main__":
     unittest.main()

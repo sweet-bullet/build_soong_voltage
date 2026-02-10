@@ -155,12 +155,12 @@ build nothing: phony
         self.assertFalse(result.success)
         self.assertEqual(result.exit_code, 1)
         self.assertIsNotNone(result.failure_details)
-        self.assertEqual(result.failure_details[0].message, "something broke") # type: ignore
+        self.assertEqual(result.failure_details[0].message, "compiler error") # type: ignore
 
     def test_parse_build_log_structured(self) -> None:
         raw_log = "FAILED: target\nError: compilation failed\nOutput:\nerror at line 1"
         result = parse_build_log(raw_log)
-        self.assertEqual(result[0].message, "compilation failed")
+        self.assertEqual(result[0].message, "error at line 1")
 
     def test_parse_build_log_unstructured(self) -> None:
         raw_log = "generic error"

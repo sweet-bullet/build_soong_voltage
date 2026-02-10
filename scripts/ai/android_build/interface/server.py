@@ -36,14 +36,9 @@ class JsonRpcResponse:
     jsonrpc: str = "2.0"
 
 @dataclasses.dataclass(frozen=True)
-class JsonRpcErrorData:
-    code: int
-    message: str
-
-@dataclasses.dataclass(frozen=True)
 class JsonRpcErrorResponse:
     id: Any
-    error: JsonRpcErrorData
+    result: dict[str, Any]
     jsonrpc: str = "2.0"
 
 @dataclasses.dataclass(frozen=True)
@@ -179,7 +174,8 @@ class MCPServer:
 
             # Hydrate Context
             if hasattr(tool_args_obj, 'product') and hasattr(tool_args_obj, 'release') and hasattr(tool_args_obj, 'variant'):
-                 ctx = BuildContext(tool_args_obj.product, tool_args_obj.release, tool_args_obj.variant)
+                 env_overrides = getattr(tool_args_obj, 'env_vars', None)
+                 ctx = BuildContext(tool_args_obj.product, tool_args_obj.release, tool_args_obj.variant, env_overrides=env_overrides)
             else:
                  raise ValueError("Tool arguments must contain product, release, and variant.")
 
@@ -252,7 +248,10 @@ class MCPServer:
     def create_error(self, request_id: Any, code: int, message: str) -> JsonRpcErrorResponse:
         return JsonRpcErrorResponse(
             id=request_id,
-            error=JsonRpcErrorData(code=code, message=message)
+            result={
+                "isError": True,
+                "content": [{"type": "text", "text": message}]
+            }
         )
 
     def _write_json(self, data: Any) -> None:

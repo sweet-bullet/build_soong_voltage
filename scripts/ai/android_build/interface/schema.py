@@ -108,6 +108,11 @@ class ToolArgs:
                 args = typing.get_args(field.type)
                 field_type = next((t for t in args if t is not type(None)), field_type)
 
+            # Check if it's a generic alias (e.g. list[str], dict[str, str]) and get base type
+            origin = typing.get_origin(field_type)
+            if origin:
+                field_type = origin
+
             # Priority 1: Function Docstring
             description = doc_args.get(field_name)
 

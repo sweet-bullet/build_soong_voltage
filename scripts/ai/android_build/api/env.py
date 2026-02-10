@@ -25,6 +25,17 @@ class BuildContext:
         self.release = release
         self.variant = variant
         self.env_overrides = env_overrides or {}
+
+        # Validate that restricted keys are not in env_overrides
+        restricted_keys = {"TARGET_PRODUCT", "TARGET_RELEASE", "TARGET_BUILD_VARIANT"}
+        if self.env_overrides:
+            found_restricted = restricted_keys.intersection(self.env_overrides.keys())
+            if found_restricted:
+                raise ValueError(
+                    f"The following environment variables are reserved and cannot be passed in env_vars: {', '.join(sorted(found_restricted))}. "
+                    "Please use the top-level arguments (product, release, variant) instead."
+                )
+
         self._env_snapshot = EnvSnapshot(product, release, variant)
 
     @property
@@ -50,7 +61,10 @@ class EnvSnapshot:
 
         # The repo root is 6 levels up from the script
         self.repo_root = sdk_root.parent.parent.parent.parent.parent
-        self.envsetup_path = self.repo_root / ENVSETUP_PATH
+
+    @property
+    def envsetup_path(self) -> Path:
+        return self.repo_root / ENVSETUP_PATH
 
     def is_cache_fresh(self) -> bool:
         """Checks if the cache file exists and is newer than envsetup.sh."""

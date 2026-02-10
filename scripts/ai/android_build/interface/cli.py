@@ -131,7 +131,8 @@ def main() -> None:
         tool_args_obj = tool_def.args_model.from_dict(data)
 
         if hasattr(tool_args_obj, 'product') and hasattr(tool_args_obj, 'release') and hasattr(tool_args_obj, 'variant'):
-             ctx = BuildContext(tool_args_obj.product, tool_args_obj.release, tool_args_obj.variant)
+             args_env_vars = getattr(tool_args_obj, 'env_vars', None)
+             ctx = BuildContext(tool_args_obj.product, tool_args_obj.release, tool_args_obj.variant, args_env_vars)
         else:
              raise ValueError(f"Tool arguments for '{args.command}' must contain product, release, and variant.")
 
