@@ -319,6 +319,10 @@ func (s *Status) Status(msg string) {
 	s.message(StatusLvl, msg)
 }
 
+func (s *Status) Error(msg string) {
+	s.message(ErrorLvl, msg)
+}
+
 type toolStatus struct {
 	status *Status
 

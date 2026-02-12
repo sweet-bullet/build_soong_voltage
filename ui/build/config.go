@@ -141,6 +141,8 @@ type configImpl struct {
 	targetDeviceDir string
 	sandboxConfig   *SandboxConfig
 
+	enforceNoReanalysis bool
+
 	// Autodetected
 	totalRAM      uint64
 	systemCpuInfo *metrics.CpuInfo
@@ -1138,6 +1140,10 @@ func getTargetsFromDirs(ctx Context, relDir string, dirs []string, targetNamePre
 	return targets
 }
 
+func (c *configImpl) EnforceNoReanalysis() bool {
+	return c.enforceNoReanalysis || c.Environment().IsEnvTrue("SOONG_ENFORCE_NO_REANALYSIS")
+}
+
 func (c *configImpl) parseArgs(ctx Context, args []string) {
 	for i := 0; i < len(args); i++ {
 		arg := strings.TrimSpace(args[i])
@@ -1222,6 +1228,8 @@ func (c *configImpl) parseArgs(ctx Context, args []string) {
 			}
 		} else if arg == "--ensure-allowlist-integrity" {
 			c.ensureAllowlistIntegrity = true
+		} else if arg == "--enforce-no-reanalysis" {
+			c.enforceNoReanalysis = true
 		} else if arg == "--run-cipd-proxy-server" {
 			c.runCIPDProxyServer = true
 			c.runCIPDProxyServerControlledByFlags = true

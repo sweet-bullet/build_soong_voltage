@@ -328,6 +328,12 @@ func main() {
 	android.InitSandbox(topDir)
 
 	availableEnv := parseAvailableEnv()
+
+	if availableEnv["SOONG_ENFORCE_NO_REANALYSIS"] == "true" {
+		fmt.Fprintln(os.Stderr, "Reanalysis will run due to build graph or product configuration change.")
+		os.Exit(1)
+	}
+
 	configuration, err := android.NewConfig(cmdlineArgs, availableEnv)
 	maybeQuit(err, "")
 	if configuration.Getenv("ALLOW_MISSING_DEPENDENCIES") == "true" {

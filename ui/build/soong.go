@@ -428,14 +428,31 @@ func bootstrapBlueprint(ctx Context, config Config) {
 	}
 }
 
-func checkEnvironmentFile(ctx Context, currentEnv *Environment, envFile string) {
+func checkEnvironmentFile(ctx Context, config Config, currentEnv *Environment, envFile string) {
 	getenv := func(k string) string {
 		v, _ := currentEnv.Get(k)
 		return v
 	}
 
 	// Log the changed environment variables to ChangedEnvironmentVariable field
-	if stale, changedEnvironmentVariableList, _ := shared.StaleEnvFile(envFile, getenv); stale {
+
+	if stale, changedEnvironmentVariableList, err := shared.StaleEnvFile(envFile, getenv); stale {
+		if config.EnforceNoReanalysis() {
+			if exists, _ := fileExists(envFile); exists {
+				if err != nil {
+					msg := fmt.Sprintf("Reanalysis will run due to missing or invalid environment file: %s. Changed TARGET_PRODUCT?", err)
+					// Both Error and Fatalf are used because Fatalf cannot write the error message to
+					// error.log.
+					ctx.Status.Error(msg)
+					ctx.Fatalf(msg)
+				}
+				msg := fmt.Sprintf("Reanalysis will run due to environment change. Changed environment variables: %v", changedEnvironmentVariableList)
+				// Both Error and Fatalf are used because Fatalf cannot write the error message to
+				// error.log.
+				ctx.Status.Error(msg)
+				ctx.Fatalf(msg)
+			}
+		}
 		for _, changedEnvironmentVariable := range changedEnvironmentVariableList {
 			ctx.Metrics.AddChangedEnvironmentVariable(changedEnvironmentVariable)
 		}
@@ -594,6 +611,19 @@ func runSoong(ctx Context, config Config, enforceNoSoongOutput bool) {
 		soongBuildEnv.Set("ALLOW_MISSING_DEPENDENCIES", "true")
 	}
 
+	// Only inject the SOONG_ENFORCE_NO_REANALYSIS variable if it's not a clean build.
+	// Clean build should not fail even if SOONG_ENFORCE_NO_REANALYSIS is set.
+	cleanBuild := false
+	if exists, _ := fileExists(config.UsedEnvFile(soongBuildTag)); !exists {
+		cleanBuild = true
+	}
+
+	if config.EnforceNoReanalysis() && !cleanBuild {
+		soongBuildEnv.Set("SOONG_ENFORCE_NO_REANALYSIS", "true")
+	} else {
+		soongBuildEnv.Unset("SOONG_ENFORCE_NO_REANALYSIS")
+	}
+
 	err := writeEnvironmentFile(ctx, envFile, soongBuildEnv.AsMap())
 	if err != nil {
 		ctx.Fatalf("failed to write environment file %s: %s", envFile, err)
@@ -603,14 +633,14 @@ func runSoong(ctx Context, config Config, enforceNoSoongOutput bool) {
 		e := ctx.BeginTrace(metrics.RunSoong, "environment check")
 		defer e.End()
 
-		checkEnvironmentFile(ctx, soongBuildEnv, config.UsedEnvFile(soongBuildTag))
+		checkEnvironmentFile(ctx, config, soongBuildEnv, config.UsedEnvFile(soongBuildTag))
 
 		if config.JsonModuleGraph() {
-			checkEnvironmentFile(ctx, soongBuildEnv, config.UsedEnvFile(jsonModuleGraphTag))
+			checkEnvironmentFile(ctx, config, soongBuildEnv, config.UsedEnvFile(jsonModuleGraphTag))
 		}
 
 		if config.SoongDocs() {
-			checkEnvironmentFile(ctx, soongBuildEnv, config.UsedEnvFile(soongDocsTag))
+			checkEnvironmentFile(ctx, config, soongBuildEnv, config.UsedEnvFile(soongDocsTag))
 		}
 	}()
 
@@ -749,7 +779,7 @@ func runSoong(ctx Context, config Config, enforceNoSoongOutput bool) {
 	}
 
 	for _, target := range targets {
-		if err := checkGlobs(ctx, target); err != nil {
+		if err := checkGlobs(ctx, config, target); err != nil {
 			ctx.Fatalf("Error checking globs: %s", err.Error())
 		}
 	}
@@ -805,7 +835,7 @@ func runSoong(ctx Context, config Config, enforceNoSoongOutput bool) {
 // with the time that they ran at every build. When soong_ui checks
 // globs, it only reruns globs whose dependencies are newer than the
 // time in the ".globs_time" file.
-func checkGlobs(ctx Context, finalOutFile string) error {
+func checkGlobs(ctx Context, config Config, finalOutFile string) error {
 	e := ctx.BeginTrace(metrics.RunSoong, "check_globs")
 	defer e.End()
 	st := ctx.Status.StartTool()
@@ -839,6 +869,13 @@ func checkGlobs(ctx Context, finalOutFile string) error {
 
 	hasChangedGlobs, err := pathtools.CheckForChangedGlobs(pathtools.OsFs, globsFile, globsTimeMicros)
 	if err != nil {
+		if config.EnforceNoReanalysis() {
+			msg := fmt.Sprintf("Reanalysis will run due to glob error: %s", err.Error())
+			// Both Error and Fatalf are used because Fatalf cannot write the error message to
+			// error.log.
+			ctx.Status.Error(msg)
+			ctx.Fatalf(msg)
+		}
 		fmt.Fprintf(os.Stdout, "\nGlobs changed, rerunning soong...\n")
 		fmt.Fprintf(os.Stdout, "%s\n", err.Error())
 	}
