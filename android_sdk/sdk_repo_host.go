@@ -252,6 +252,13 @@ func (s *sdkRepoHost) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	if osName == "linux_glibc" {
 		osName = "linux"
 	}
+
+	// Keep the names of legacy SDK targets, but add an architecture suffix for new
+	// cross-compiled arm64 tools.
+	if arch := ctx.MultiTargets()[0].Arch.ArchType; arch != android.X86_64 && ctx.Os() != android.Darwin {
+		osName += "-" + arch.Name
+	}
+
 	name := fmt.Sprintf("sdk-repo-%s-%s", osName, s.BaseModuleName())
 
 	installPath := android.PathForModuleInstall(ctx, "sdk-repo")
