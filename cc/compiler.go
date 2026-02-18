@@ -515,6 +515,22 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags, deps
 
 	if ctx.apexVariationName() != "" {
 		flags.Global.CommonFlags = append(flags.Global.CommonFlags, "-D__ANDROID_APEX__")
+
+		// As APEX modules ship to a variety of ARM64 devices, some with PAC/BTI and some without,
+		// enable both mitigations to ensure that devices which support PAC/BTI benefit from it,
+		// and devices which don't still have stack-protector enabled.
+		//
+		// PAC/BTI instructions are encoded in the NOP space, so this should not present any
+		// compatibility issues when pushed to hardware which does not support these instructions.
+		// Similarly, enabling stack-protector alongside PAC/BTI does not present any compatibility
+		// issues.
+		if ctx.Arch().ArchType == android.Arm64 {
+			// Some of these flags are intentionally duplicated from globals as some
+			// targets disable them. Duplicating them here ensures that no matter the
+			// build target for APEXes, these flags are enabled.
+			flags.Global.CFlags = append(flags.Global.CFlags, "-fstack-protector-strong")
+			flags.Global.CFlags = append(flags.Global.CFlags, "-mbranch-protection=standard")
+		}
 	}
 
 	if ctx.Target().NativeBridge == android.NativeBridgeEnabled {
