@@ -198,6 +198,7 @@ func TestVendorProductVariantGenrule(t *testing.T) {
 		out: ["out"],
 		vendor_available: true,
 		product_available: true,
+		split_all_variants: true,
 	}
 	`
 	t.Helper()
@@ -304,6 +305,7 @@ func TestGenruleDefaults(t *testing.T) {
 		out: ["out"],
 		vendor_available: true,
 		product_available: true,
+		split_all_variants: true,
 	}
 
 	cc_genrule {

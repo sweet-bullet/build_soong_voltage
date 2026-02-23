@@ -142,6 +142,8 @@ type Module interface {
 	NoFullInstall() bool
 
 	SplitAllVariants() bool
+	// SplitAllImageVariants should return true if all image variants should be created upfront.
+	SplitAllImageVariants() bool
 }
 
 // Qualified id for a module
@@ -1553,6 +1555,10 @@ func (m *ModuleBase) EffectiveLicenseFiles() Paths {
 		result = append(result, p.Path)
 	}
 	return result
+}
+
+func (m *ModuleBase) SplitAllImageVariants() bool {
+	return false
 }
 
 // computeInstallDeps finds the installed paths of all dependencies that have a dependency

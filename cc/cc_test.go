@@ -1410,6 +1410,7 @@ func TestRecovery(t *testing.T) {
 			name: "libHalInRecovery",
 			recovery_available: true,
 			vendor: true,
+			split_all_variants: true,
 		}
 	`)
 
@@ -3160,7 +3161,8 @@ func TestImageVariants(t *testing.T) {
 		srcs: ["binfoo.cc"],
 		vendor_available: true,
 		product_available: true,
-		shared_libs: ["libbar"]
+		shared_libs: ["libbar"],
+		split_all_variants: true,
 	}
 	cc_library {
 		name: "libbar",
@@ -3197,6 +3199,7 @@ func TestVendorOrProductVariantUsesPlatformSdkVersionAsDefault(t *testing.T) {
 			srcs: ["libfoo.cc"],
 			vendor_available: true,
 			product_available: true,
+			split_all_variants: true,
 		}
 
 		cc_library {
@@ -3205,6 +3208,7 @@ func TestVendorOrProductVariantUsesPlatformSdkVersionAsDefault(t *testing.T) {
 			vendor_available: true,
 			product_available: true,
 			min_sdk_version: "29",
+			split_all_variants: true,
 		}
 	`
 

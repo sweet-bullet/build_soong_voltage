@@ -67,6 +67,7 @@ var PrepareForTestWithArchMutator = GroupFixturePreparers(
 	FixtureRegisterWithContext(func(ctx RegistrationContext) {
 		ctx.PreDepsMutators(registerArchMutator)
 	}),
+	PrepareForTestWithBuildFlag("RELEASE_SOONG_IMAGE_VARIANT_ON_DEMAND", "true"),
 )
 
 var PrepareForTestWithDefaults = FixtureRegisterWithContext(func(ctx RegistrationContext) {

@@ -3790,6 +3790,7 @@ func TestMacro(t *testing.T) {
 			static_libs: ["mylib3"],
 			recovery_available: true,
 			min_sdk_version: "29",
+			split_all_variants: true,
 		}
 		cc_library {
 			name: "mylib3",
@@ -3802,6 +3803,7 @@ func TestMacro(t *testing.T) {
 			],
 			recovery_available: true,
 			min_sdk_version: "29",
+			split_all_variants: true,
 		}
 	`)
 

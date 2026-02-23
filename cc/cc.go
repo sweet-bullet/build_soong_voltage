@@ -1632,6 +1632,16 @@ func (m *Module) NeedsLlndkVariants() bool {
 	return lib != nil && (lib.HasLLNDKStubs() || lib.HasLLNDKHeaders())
 }
 
+func (m *Module) SplitAllImageVariants() bool {
+	// llndk_libraries.txt is created by a singleton that collates all the
+	// llndk libraries using VisitAllModules in GenerateAndroidBuildActions.
+	//
+	// When only the primary "core" variants are created, the "vendor" variants
+	// of llndk libraries are not available in VisitAllModules.
+	// Keep the frontloaded variant creation for llndk libraries.
+	return m.NeedsLlndkVariants()
+}
+
 func (m *Module) NeedsVendorPublicLibraryVariants() bool {
 	lib := moduleVersionedInterface(m)
 	return lib != nil && (lib.HasVendorPublicLibrary())

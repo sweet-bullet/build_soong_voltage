@@ -1188,7 +1188,7 @@ func (libstdTransitionMutator) IncomingTransition(ctx android.IncomingTransition
 				if incomingVariation != "" {
 					return incomingVariation
 				}
-				if m.compiler.noStdlibs() {
+				if m.compiler.noStdlibs() || (ctx.Device() && library.buildNoStd()) {
 					return "rlib-core"
 				} else {
 					return "rlib-std"

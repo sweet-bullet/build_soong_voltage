@@ -31,6 +31,7 @@ func TestVendorLinkage(t *testing.T) {
 					"libfoo_vendor",
 				],
 				vendor_available: true,
+				split_all_variants: true,
 			}
 			cc_binary {
 				name: "fizz_soc_specific",
@@ -61,6 +62,7 @@ func TestImageCfgFlag(t *testing.T) {
 				srcs: ["foo.rs"],
 				vendor_available: true,
 				product_available: true,
+				split_all_variants: true,
 			}
 		`)
 
@@ -110,6 +112,7 @@ func TestVendorRamdiskLinkage(t *testing.T) {
 				],
 				system_shared_libs: [],
 				vendor_ramdisk_available: true,
+				split_all_variants: true,
 			}
 			rust_ffi_static {
 				name: "libfoo_vendor_ramdisk",

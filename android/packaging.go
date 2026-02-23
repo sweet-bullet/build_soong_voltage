@@ -489,6 +489,7 @@ func (p *PackagingBase) AddDeps(ctx BottomUpMutatorContext, depTag blueprint.Dep
 			return
 		}
 		targetVariation := t.Variations()
+
 		sharedVariation := blueprint.Variation{
 			Mutator:   "link",
 			Variation: "shared",

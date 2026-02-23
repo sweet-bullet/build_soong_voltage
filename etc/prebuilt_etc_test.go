@@ -49,6 +49,7 @@ func TestPrebuiltEtcVariants(t *testing.T) {
 			name: "bar.conf",
 			src: "bar.conf",
 			recovery_available: true,
+			split_all_variants: true,
 		}
 		prebuilt_etc {
 			name: "baz.conf",

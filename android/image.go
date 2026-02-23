@@ -193,12 +193,38 @@ func getImageVariations(ctx ImageInterfaceContext) []string {
 	return variations
 }
 
-func (imageTransitionMutator) Split(ctx BaseModuleContext) []string {
-	return getImageVariations(ctx)
+func (imageTransitionMutator) splitAll(ctx BaseModuleContext) bool {
+	if p := GetEmbeddedPrebuilt(ctx.Module()); p != nil {
+		return true
+	}
+	// Hack for source with prebuilts.
+	// image mutator runs before some of the prebuilt mutators, so use
+	// naming convention for now.
+	if ctx.OtherModuleExists("prebuilt_" + ctx.Module().Name()) {
+		return true
+	}
+	if ctx.Module().SplitAllImageVariants() {
+		return true
+	}
+	return !ctx.Config().GetBuildFlagBool("RELEASE_SOONG_IMAGE_VARIANT_ON_DEMAND")
 }
 
-func (imageTransitionMutator) SplitOnDemand(ctx BaseModuleContext) []string {
-	return nil
+func (i imageTransitionMutator) Split(ctx BaseModuleContext) []string {
+	allSplits := getImageVariations(ctx)
+	if i.splitAll(ctx) {
+		return allSplits
+	} else {
+		return allSplits[0:1]
+	}
+}
+
+func (i imageTransitionMutator) SplitOnDemand(ctx BaseModuleContext) []string {
+	allSplits := getImageVariations(ctx)
+	if len(allSplits) <= 1 || i.splitAll(ctx) {
+		return nil
+	} else {
+		return allSplits[1:]
+	}
 }
 
 func (imageTransitionMutator) OutgoingTransition(ctx OutgoingTransitionContext, sourceVariation string) string {
