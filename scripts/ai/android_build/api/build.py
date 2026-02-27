@@ -43,11 +43,19 @@ class BuildResult:
     exit_code: int
     failure_details: Optional[list[BuildFailure]] = None
 
+def strip_ansi_codes(text: str) -> str:
+    """Removes ANSI escape sequences from a string."""
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
+
 def parse_build_log(raw_log: str) -> list[BuildFailure]:
     """
     Parses the Android error.log content into a structured list of failures.
     Returns a list of BuildFailure objects.
     """
+    # Remove ANSI codes to ensure clean regex matching
+    clean_log = strip_ansi_codes(raw_log)
+
     # Regex to extract structured Soong errors
     # Format is defined in build/soong/ui/status/log.go
     soong_pattern = re.compile(
@@ -58,13 +66,14 @@ def parse_build_log(raw_log: str) -> list[BuildFailure]:
         r"Output:\n(?P<output>[\s\S]*?)(?=\n\nFAILED:|$)"
     )
 
-    matches = list(soong_pattern.finditer(raw_log))
+    matches = list(soong_pattern.finditer(clean_log))
 
     if matches:
         # Scenario 1: Structured Log Found
         structured_failures = []
         for m in matches:
             data = m.groupdict()
+
             failure = BuildFailure(
                 target=(data.get("target") or "").strip(),
                 command=(data.get("command") or "").strip(),
@@ -75,9 +84,7 @@ def parse_build_log(raw_log: str) -> list[BuildFailure]:
         return structured_failures
     else:
         # Scenario 2: Unstructured / Ninja Error
-        return [BuildFailure(message=raw_log.strip())]
-
-
+        return [BuildFailure(message=clean_log.strip())]
 
 def _execute_build_command(ctx: BuildContext, targets: list[str], enforce_no_reanalysis: bool = False, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> int:
     """Helper to run a single Soong build command."""

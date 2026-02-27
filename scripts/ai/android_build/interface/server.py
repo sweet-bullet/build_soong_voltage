@@ -42,9 +42,11 @@ class JsonRpcErrorResponse(JsonRpcResponse):
     Represents a tool or protocol error (masked as success with isError: True).
     The result object MUST contain isError: True.
     """
-    def __init__(self, id: Any, code: int, message: str):
+    def __init__(self, id: Any, code: int, message: str, content: Optional[list[dict[str, Any]]] = None):
+        if content is None:
+            content = [{"type": "text", "text": f"Error {code}: {message}"}]
         result = {
-            "content": [{"type": "text", "text": f"Error {code}: {message}"}],
+            "content": content,
             "isError": True
         }
         object.__setattr__(self, "id", id)
@@ -197,36 +199,48 @@ class MCPServer:
                     self.send_progress(progress_token, current, total)
 
             # Capture Output
+            output_text = ""
+            error_text = ""
             f_out = io.StringIO()
             f_err = io.StringIO()
 
-            with contextlib.redirect_stdout(f_out), contextlib.redirect_stderr(f_err):
-                tool_def.implementation(ctx, tool_args_obj, progress_callback=progress_callback)
+            try:
+                with contextlib.redirect_stdout(f_out), contextlib.redirect_stderr(f_err):
+                    tool_def.implementation(ctx, tool_args_obj, progress_callback=progress_callback)
+            finally:
+                output_text = f_out.getvalue()
+                error_text = f_err.getvalue()
 
-            output_text = f_out.getvalue()
-            error_text = f_err.getvalue()
-
-            result_text = output_text
+            content = []
+            if output_text:
+                content.append({"type": "text", "text": output_text})
             if error_text:
-                result_text += f"\n--- Stderr ---\n{error_text}"
+                content.append({"type": "text", "text": f"--- Stderr ---\n{error_text}"})
 
             return self.create_response(request_id, {
-                "content": [{"type": "text", "text": result_text}]
+                "content": content
             })
 
         except TypeError as e:
             if "unexpected keyword argument 'progress_callback'" in str(e):
                 try:
+                    output_text = ""
+                    error_text = ""
                     f_out = io.StringIO()
                     f_err = io.StringIO()
-                    with contextlib.redirect_stdout(f_out), contextlib.redirect_stderr(f_err):
-                        tool_def.implementation(ctx, tool_args_obj)
+                    try:
+                        with contextlib.redirect_stdout(f_out), contextlib.redirect_stderr(f_err):
+                            tool_def.implementation(ctx, tool_args_obj)
+                    finally:
+                        output_text = f_out.getvalue()
+                        error_text = f_err.getvalue()
 
-                    output_text = f_out.getvalue()
-                    error_text = f_err.getvalue()
-                    result_text = output_text
-                    if error_text: result_text += f"\n--- Stderr ---\n{error_text}"
-                    return self.create_response(request_id, {"content": [{"type": "text", "text": result_text}]})
+                    content = []
+                    if output_text:
+                        content.append({"type": "text", "text": output_text})
+                    if error_text:
+                        content.append({"type": "text", "text": f"--- Stderr ---\n{error_text}"})
+                    return self.create_response(request_id, {"content": content})
                 except Exception as inner_e:
                      tb = traceback.format_exc()
                      return self.create_error(request_id, -32603, f"Tool execution failed (fallback): {inner_e}\n{tb}")
@@ -236,12 +250,22 @@ class MCPServer:
 
         except ToolError as e:
             # Clean Tool Error (no traceback)
-            return self.create_error(request_id, -32603, str(e))
+            content = [{"type": "text", "text": f"Error -32603: {e}"}]
+            if output_text:
+                content.append({"type": "text", "text": f"--- Output ---\n{output_text}"})
+            if error_text:
+                content.append({"type": "text", "text": f"--- Stderr ---\n{error_text}"})
+            return self.create_error(request_id, -32603, str(e), content=content)
 
         except Exception as e:
             # Tool Execution Error (captured as result with isError: True)
             tb = traceback.format_exc()
-            return self.create_error(request_id, -32603, f"Tool execution failed: {e}\n{tb}")
+            content = [{"type": "text", "text": f"Error -32603: Tool execution failed: {e}\n{tb}"}]
+            if output_text:
+                content.append({"type": "text", "text": f"--- Output ---\n{output_text}"})
+            if error_text:
+                content.append({"type": "text", "text": f"--- Stderr ---\n{error_text}"})
+            return self.create_error(request_id, -32603, str(e), content=content)
 
     def send_progress(self, progress_token: Any, progress: float, total: Optional[float] = None) -> None:
         params = {
@@ -260,8 +284,8 @@ class MCPServer:
     def create_response(self, request_id: Any, result: Any) -> JsonRpcResponse:
         return JsonRpcResponse(id=request_id, result=result)
 
-    def create_error(self, request_id: Any, code: int, message: str) -> JsonRpcErrorResponse:
-        return JsonRpcErrorResponse(request_id, code, message)
+    def create_error(self, request_id: Any, code: int, message: str, content: Optional[list[dict[str, Any]]] = None) -> JsonRpcErrorResponse:
+        return JsonRpcErrorResponse(request_id, code, message, content=content)
 
     def _write_json(self, data: Any) -> None:
         def default_encoder(obj: Any) -> dict[str, Any]:

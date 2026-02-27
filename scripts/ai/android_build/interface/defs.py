@@ -84,7 +84,11 @@ def run_build(ctx: BuildContext, args: BuildArgs, progress_callback: Optional[Ca
         else:
              print(json.dumps(dataclasses.asdict(result), indent=2))
              # Actual build error
-             raise ToolError("Build Failed")
+             failure = result.failure_details[0] if result.failure_details else None
+             msg = f"Build Failed: {failure.message}" if failure else "Build Failed"
+             if failure and failure.target:
+                 msg += f" (Target: {failure.target})"
+             raise ToolError(msg)
 
     print(json.dumps(dataclasses.asdict(result), indent=2))
 
