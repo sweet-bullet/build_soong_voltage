@@ -872,13 +872,11 @@ func (d *dexer) r8Flags(ctx android.ModuleContext, dexParams *compileDexParams, 
 	// TODO(ccross): if this is an instrumentation test of an obfuscated app, use the
 	// dictionary of the app and move the app from libraryjars to injars.
 
-	// For now, only enable warnings by default if the target is optimized by default.
-	// This ensures at least nominal safety when apps rely on the default setting.
-	// TODO(b/229727645): Enable warnings by default for *any* optimized target.
-	// TODO(b/180878971): missing classes should be added to the relevant builds.
-	explicitOptimize := opt.Optimize.Get(ctx)
-	optimizingFromDefault := explicitOptimize.IsEmpty() && opt.OptimizeByDefault
-	ignoreWarningsByDefault := !optimizingFromDefault
+	// For now, only enable warnings by default if the target is optimized, as that is generally
+	// the riskiest scenario to ignore such warnings.
+	// TODO(b/180878971): Address missing classes in remaining builds and default to not ignoring
+	// warnings for all targets, not just fully optimized ones.
+	ignoreWarningsByDefault := !optimize
 	if proptools.BoolDefault(opt.Ignore_warnings, ignoreWarningsByDefault) {
 		r8Flags = append(r8Flags, "-ignorewarnings")
 	}
