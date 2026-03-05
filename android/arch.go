@@ -454,13 +454,13 @@ func moduleOSList(ctx ConfigContext, base *ModuleBase) []OsType {
 	return moduleOSList
 }
 
-func (o *osTransitionMutator) Split(ctx BaseModuleContext) []string {
+func (o *osTransitionMutator) split(ctx BaseModuleContext) ([]string, *allOsInfo) {
 	module := ctx.Module()
 	base := module.base()
 
 	// Nothing to do for modules that are not architecture specific (e.g. a genrule).
 	if !base.ArchSpecific() {
-		return []string{""}
+		return []string{""}, nil
 	}
 
 	moduleOSList := moduleOSList(ctx, base)
@@ -468,7 +468,7 @@ func (o *osTransitionMutator) Split(ctx BaseModuleContext) []string {
 	// If there are no supported OSes then disable the module.
 	if len(moduleOSList) == 0 {
 		base.Disable()
-		return []string{""}
+		return []string{""}, nil
 	}
 
 	// Convert the list of supported OsTypes to the variation names.
@@ -479,16 +479,72 @@ func (o *osTransitionMutator) Split(ctx BaseModuleContext) []string {
 		osMapping[osNames[i]] = os
 	}
 
-	SetProvider(ctx, allOsProvider, &allOsInfo{
+	allOsInfo := &allOsInfo{
 		Os:         osMapping,
 		Variations: osNames,
-	})
+	}
 
-	return osNames
+	return osNames, allOsInfo
+}
+
+var splitAllAllowlist = []string{
+	"okio-lib", // source library in root namespace with a prebuilt in a non root namespace.
+}
+
+// splitAllOsArchCommon returns true if all the supported variants should be created upfront.
+func splitAllOsArchCommon(ctx BaseModuleContext) bool {
+	if p := GetEmbeddedPrebuilt(ctx.Module()); p != nil {
+		return true
+	}
+	if ctx.OtherModuleExists("prebuilt_" + ctx.ModuleName()) {
+		// Os and Arch run before the prebuilts mutators.
+		// This uses a naming convention to determine if this is a source module.
+		//
+		// This does not handle cases where the prebuilt exists in a non root namespace.
+		return true
+	}
+	if InList(ctx.ModuleName(), splitAllAllowlist) {
+		return true
+	}
+	if strings.Contains(ctx.ModuleType(), "_test") {
+		// Keep the frontloaded variant creation for all tests for compatibility with atest,
+		// and test_suites.go which creates the test suites using a singleton.
+		return true
+	}
+	return false
+}
+
+func (o *osTransitionMutator) splitAll(ctx BaseModuleContext) bool {
+	if splitAllOsArchCommon(ctx) {
+		return true
+	}
+	// Soong benchmark builds
+	if ctx.Config().IsEnvTrue("SOONG_SPLIT_OPT_IN_VARIANTS_ON_DEMAND") {
+		return false
+	}
+	// Otherwise use build flags
+	return !ctx.Config().GetBuildFlagBool("RELEASE_SOONG_OS_VARIANT_ON_DEMAND")
+}
+
+func (o *osTransitionMutator) Split(ctx BaseModuleContext) []string {
+	allSplits, osInfo := o.split(ctx)
+	if osInfo != nil {
+		SetProvider(ctx, allOsProvider, osInfo)
+	}
+	if o.splitAll(ctx) {
+		return allSplits
+	} else {
+		return allSplits[0:1]
+	}
 }
 
 func (o *osTransitionMutator) SplitOnDemand(ctx BaseModuleContext) []string {
-	return nil
+	allSplits, _ := o.split(ctx)
+	if len(allSplits) <= 1 || o.splitAll(ctx) {
+		return nil
+	} else {
+		return allSplits[1:]
+	}
 }
 
 func (o *osTransitionMutator) OutgoingTransition(ctx OutgoingTransitionContext, sourceVariation string) string {
@@ -619,18 +675,18 @@ type allArchInfo struct {
 
 var allArchProvider = blueprint.NewMutatorProvider[*allArchInfo]("arch_propagate")
 
-func (a *archTransitionMutator) Split(ctx BaseModuleContext) []string {
+func (a *archTransitionMutator) split(ctx BaseModuleContext) ([]string, *allArchInfo) {
 	module := ctx.Module()
 	base := module.base()
 
 	if !base.ArchSpecific() {
-		return []string{""}
+		return []string{""}, nil
 	}
 
 	os := base.commonProperties.CompileOS
 	if os == CommonOS {
 		// Do not create arch specific variants for the CommonOS variant.
-		return []string{""}
+		return []string{""}, nil
 	}
 
 	osTargets := ctx.Config().Targets[os]
@@ -671,7 +727,7 @@ func (a *archTransitionMutator) Split(ctx BaseModuleContext) []string {
 	// If there are no supported targets disable the module.
 	if len(targets) == 0 {
 		base.Disable()
-		return []string{""}
+		return []string{""}, nil
 	}
 
 	if os == Android && base.IsLFISupported() {
@@ -700,7 +756,7 @@ func (a *archTransitionMutator) Split(ctx BaseModuleContext) []string {
 	// If there are no supported targets disable the module.
 	if len(targets) == 0 {
 		base.Disable()
-		return []string{""}
+		return []string{""}, nil
 	}
 
 	// Convert the targets into a list of arch variation names.
@@ -711,17 +767,46 @@ func (a *archTransitionMutator) Split(ctx BaseModuleContext) []string {
 		targetMapping[targetNames[i]] = targets[i]
 	}
 
-	SetProvider(ctx, allArchProvider, &allArchInfo{
+	allArchInfo := &allArchInfo{
 		Targets:      targetMapping,
 		MultiTargets: multiTargets,
 		Primary:      targetNames[0],
 		Multilib:     multilib,
-	})
-	return targetNames
+	}
+	return targetNames, allArchInfo
+}
+
+func (a *archTransitionMutator) splitAll(ctx BaseModuleContext) bool {
+	if splitAllOsArchCommon(ctx) {
+		return true
+	}
+	// Soong benchmark builds
+	if ctx.Config().IsEnvTrue("SOONG_SPLIT_OPT_IN_VARIANTS_ON_DEMAND") {
+		return false
+	}
+	// Otherwise use build flags
+	return !ctx.Config().GetBuildFlagBool("RELEASE_SOONG_ARCH_VARIANT_ON_DEMAND")
+}
+
+func (a *archTransitionMutator) Split(ctx BaseModuleContext) []string {
+	allSplits, archInfo := a.split(ctx)
+	if archInfo != nil {
+		SetProvider(ctx, allArchProvider, archInfo)
+	}
+	if a.splitAll(ctx) {
+		return allSplits
+	} else {
+		return allSplits[0:1]
+	}
 }
 
 func (a *archTransitionMutator) SplitOnDemand(ctx BaseModuleContext) []string {
-	return nil
+	allSplits, _ := a.split(ctx)
+	if len(allSplits) <= 1 || a.splitAll(ctx) {
+		return nil
+	} else {
+		return allSplits[1:]
+	}
 }
 
 func (a *archTransitionMutator) OutgoingTransition(ctx OutgoingTransitionContext, sourceVariation string) string {
