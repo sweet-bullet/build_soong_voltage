@@ -125,6 +125,7 @@ var (
 	jsonmodify                     = pctx.HostTool("jsonmodify")
 	conv_apex_manifest             = pctx.HostTool("conv_apex_manifest")
 	conv_linker_config             = pctx.HostTool("conv_linker_config")
+	extract_apks                   = pctx.HostTool("extract_apks")
 
 	apexManifestRule = pctx.StaticRule("apexManifestRule", blueprint.RuleParams{
 		Command2: blueprint.NewCommand(

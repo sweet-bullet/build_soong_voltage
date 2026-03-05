@@ -35,6 +35,7 @@ var PrepareForTestWithApexBuildComponents = android.GroupFixturePreparers(
 		"build/soong/scripts/unpack-prebuilt-apex.sh": nil,
 		// Needed by all_apex_certs
 		"build/make/target/product/security/testkey.x509.pem": nil,
+		"prebuilts/build-tools/linux-x86/bin/one-true-awk":    nil,
 	}.AddToFixture(),
 	android.PrepareForTestWithBuildFlag("RELEASE_DEFAULT_UPDATABLE_MODULE_VERSION", testDefaultUpdatableModuleVersion),
 	android.PrepareForTestWithHostTools(
