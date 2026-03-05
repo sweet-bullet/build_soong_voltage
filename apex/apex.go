@@ -1004,6 +1004,8 @@ func (a *apexBundle) DepsMutator(ctx android.BottomUpMutatorContext) {
 	if ctx.OtherModuleExists("all_apex_contributions") {
 		ctx.AddDependency(ctx.Module(), android.AcDepTag, "all_apex_contributions")
 	}
+
+	ctx.AddHostToolDependencies("zipsync", "apex_compression_tool")
 }
 
 type allApexCertsDependencyTag struct {

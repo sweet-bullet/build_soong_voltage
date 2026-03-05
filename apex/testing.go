@@ -37,4 +37,14 @@ var PrepareForTestWithApexBuildComponents = android.GroupFixturePreparers(
 		"build/make/target/product/security/testkey.x509.pem": nil,
 	}.AddToFixture(),
 	android.PrepareForTestWithBuildFlag("RELEASE_DEFAULT_UPDATABLE_MODULE_VERSION", testDefaultUpdatableModuleVersion),
+	android.PrepareForTestWithHostTools(
+		"apex_compression_tool",
+		"cat",
+		"cp",
+		"find",
+		"echo",
+		"sort",
+		"zipinfo",
+		"zipsync",
+	),
 )

@@ -498,7 +498,7 @@ func (a *apexBundle) buildFileContexts(ctx android.ModuleContext) android.Path {
 	}
 
 	output := android.PathForModuleOut(ctx, "file_contexts")
-	rule := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
+	rule := android.NewRuleBuilder(pctx, ctx)
 
 	labelForRoot := "u:object_r:system_file:s0"
 	labelForManifest := "u:object_r:system_file:s0"
@@ -508,14 +508,14 @@ func (a *apexBundle) buildFileContexts(ctx android.ModuleContext) android.Path {
 		labelForManifest = "u:object_r:vendor_apex_metadata_file:s0"
 	}
 	// remove old file
-	rule.Command().Text("rm").FlagWithOutput("-f ", output)
+	rule.Command().BuiltTool("rm").FlagWithOutput("-f ", output)
 	// copy file_contexts
-	rule.Command().Text("cat").Input(fileContexts).Text(">>").Output(output)
+	rule.Command().BuiltTool("cat").Input(fileContexts).Text(">>").Output(output)
 	// new line
-	rule.Command().Text("echo").Text(">>").Output(output)
+	rule.Command().BuiltTool("echo").Text(">>").Output(output)
 	// force-label /apex_manifest.pb and /
-	rule.Command().Text("echo").Text("/apex_manifest\\\\.pb").Text(labelForManifest).Text(">>").Output(output)
-	rule.Command().Text("echo").Text("/").Text(labelForRoot).Text(">>").Output(output)
+	rule.Command().BuiltTool("echo").Text("/apex_manifest\\\\.pb").Text(labelForManifest).Text(">>").Output(output)
+	rule.Command().BuiltTool("echo").Text("/").Text(labelForRoot).Text(">>").Output(output)
 
 	rule.Build("file_contexts."+a.Name(), "Generate file_contexts")
 	return output
@@ -901,8 +901,8 @@ func (a *apexBundle) buildApex(ctx android.ModuleContext) {
 		ctx.ModuleProxy(),
 	)
 	noticeAssetPath := android.PathForModuleOut(ctx, "NOTICE", "NOTICE.html.gz")
-	builder := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
-	builder.Command().Text("cp").
+	builder := android.NewRuleBuilder(pctx, ctx)
+	builder.Command().BuiltTool("cp").
 		Input(htmlGzNotice).
 		Output(noticeAssetPath)
 	builder.Build("notice_dir", "Building notice dir")
@@ -1109,9 +1109,9 @@ func (a *apexBundle) buildApex(ctx android.ModuleContext) {
 	if a.isCompressed {
 		unsignedCompressedOutputFile := android.PathForModuleOut(ctx, a.Name()+imageCapexSuffix+".unsigned")
 
-		compressRule := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
+		compressRule := android.NewRuleBuilder(pctx, ctx)
 		compressRule.Command().
-			Text("rm").
+			BuiltTool("rm").
 			FlagWithOutput("-f ", unsignedCompressedOutputFile)
 		compressRule.Command().
 			BuiltTool("apex_compression_tool").
@@ -1314,26 +1314,26 @@ func (a *apexBundle) buildCannedFsConfig(ctx android.ModuleContext) android.Path
 	sort.Strings(zipDirs)
 
 	cannedFsConfig := android.PathForModuleOut(ctx, "canned_fs_config")
-	builder := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
+	builder := android.NewRuleBuilder(pctx, ctx)
 	cmd := builder.Command()
 	cmd.Text("(")
-	cmd.Text("echo '/ 1000 1000 0755';")
+	cmd.BuiltTool("echo").Text("'/ 1000 1000 0755';")
 	for _, p := range readOnlyPaths {
-		cmd.Textf("echo '/%s 1000 1000 0644';", p)
+		cmd.BuiltTool("echo").Textf("'/%s 1000 1000 0644';", p)
 	}
 	for _, p := range executablePaths {
-		cmd.Textf("echo '/%s 0 2000 0755';", p)
+		cmd.BuiltTool("echo").Textf("'/%s 0 2000 0755';", p)
 	}
 	for _, dir := range zipDirs {
-		cmd.Textf("echo '/%s 0 2000 0755';", dir)
+		cmd.BuiltTool("echo").Textf("'/%s 0 2000 0755';", dir)
 		file := zipFiles[dir]
-		cmd.Text("zipinfo -1").Input(file).Textf(`| sed "s:\(.*\):/%s/\1 1000 1000 0644:";`, dir)
+		cmd.PrebuiltBuildTool(ctx, "ziptool").Text("zipinfo -1").Input(file).Text(`|`).BuiltTool("sed").Textf(`"s:\(.*\):/%s/\1 1000 1000 0644:";`, dir)
 	}
 	// Custom fs_config is "appended" to the last so that entries from the file are preferred
 	// over default ones set above.
 	customFsConfig := a.properties.Canned_fs_config.GetOrDefault(ctx, "")
 	if customFsConfig != "" {
-		cmd.Text("cat").Input(android.PathForModuleSrc(ctx, customFsConfig))
+		cmd.BuiltTool("cat").Input(android.PathForModuleSrc(ctx, customFsConfig))
 	}
 	cmd.Text(")").FlagWithOutput("> ", cannedFsConfig)
 	builder.Build("generateFsConfig", fmt.Sprintf("Generating canned fs config for %s", a.BaseModuleName()))
