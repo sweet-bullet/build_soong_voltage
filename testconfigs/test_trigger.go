@@ -113,6 +113,15 @@ func (trigger *TestTrigger) GenerateAndroidBuildActions(ctx android.ModuleContex
 		TestTriggerProperties: trigger.configProperties,
 		modulePath:            ctx.ModuleDir(),
 	}
+
+	// Use the team resolved by Soong (including package defaults) as the source of truth.
+	info.Owners.Team = trigger.Team()
+
+	// If the user manually defined the owners.team, report an error.
+	if trigger.configProperties.Owners.Team != "" {
+		ctx.PropertyErrorf("owners.team", "Please use standard property in Android.bp: team")
+	}
+
 	info.Validate(ctx)
 
 	// Create provider for TestTrigger information.
