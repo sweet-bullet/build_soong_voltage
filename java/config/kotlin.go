@@ -14,8 +14,10 @@
 
 package config
 
-import "strings"
-import "android/soong/android"
+import (
+	"android/soong/android"
+	"strings"
+)
 
 var (
 	KotlinStdlibJar     = "external/kotlinc/lib/kotlin-stdlib.jar"
@@ -41,6 +43,10 @@ func init() {
 	pctx.SourcePathVariable("KotlinAnnotationJar", "external/kotlinc/lib/annotations-13.0.jar")
 	pctx.SourcePathVariable("KotlinStdlibJar", KotlinStdlibJar)
 	pctx.SourcePathVariable("KotlinAbiGenPluginJar", "external/kotlinc/lib/jvm-abi-gen.jar")
+	pctx.SourcePathVariable("KotlinXCoroutinesJar", "external/kotlinc/lib/kotlinx-coroutines-core-jvm.jar")
+	pctx.SourcePathVariable("KotlinAnnotationsJvmJar", "external/kotlinc/lib/kotlin-annotations-jvm.jar")
+	pctx.SourcePathVariable("KotlinStdlibJdk7Jar", "external/kotlinc/lib/kotlin-stdlib-jdk7.jar")
+	pctx.SourcePathVariable("KotlinStdlibJdk8Jar", "external/kotlinc/lib/kotlin-stdlib-jdk8.jar")
 
 	// These flags silence "Illegal reflective access" warnings when running kapt in OpenJDK9+
 	pctx.StaticVariable("KaptSuppressJDK9Warnings", strings.Join([]string{

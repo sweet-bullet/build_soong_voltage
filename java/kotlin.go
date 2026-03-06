@@ -41,30 +41,45 @@ const inputDeltaCmd = `${config.FindInputDeltaCmd} ` +
 	`--version 2 ` +
 	`> $sourceDeltaFile`
 
-const kotlinZipSyncCmd = `mkdir -p $srcJarDir && ` +
-	`${config.ZipSyncCmd} -d $srcJarDir -l $srcJarDir/list -f "*.java" -f "*.kt" $srcJars`
+func concat(args ...any) []any {
+	var result []any
+	for _, arg := range args {
+		if slice, ok := arg.([]any); ok {
+			result = append(result, slice...)
+		} else {
+			result = append(result, arg)
+		}
+	}
+	return result
+}
 
-const nonIncKotlinCmd = `rm -rf "$classesDir" "$headerClassesDir" "$srcJarDir" "$kotlinBuildFile" "$emptyDir" && ` +
-	`mkdir -p "$classesDir" "$headerClassesDir" "$emptyDir" && ` +
-	kotlinZipSyncCmd + ` && ` +
-	`${config.GenKotlinBuildFileCmd} --classpath "$classpath" $friendPathsArg --name "$name"` +
-	` --out_dir "$classesDir" --srcs "$out.rsp" --srcs "$srcJarDir/list"` +
-	` $commonSrcFilesArg --out "$kotlinBuildFile" && ` +
-	`${config.KotlincCmd} ${config.KotlincGlobalFlags} ` +
-	` ${config.KotlincSuppressJDK9Warnings} ${config.KotlincHeapFlags} ` +
-	` $kotlincFlags -jvm-target $kotlinJvmTarget $composePluginFlag $kotlincPluginFlags -Xbuild-file=$kotlinBuildFile ` +
-	` -kotlin-home $emptyDir ` +
-	` -Xplugin=${config.KotlinAbiGenPluginJar} ` +
-	` -P plugin:org.jetbrains.kotlin.jvm.abi:outputDir=$headerClassesDir && ` +
-	`${config.SoongZipCmd} -jar $jarArgs -o $out -C $classesDir -D $classesDir -write_if_changed && ` +
-	`${config.SoongZipCmd} -jar $jarArgs -o $headerJar -C $headerClassesDir -D $headerClassesDir -write_if_changed && ` +
-	`rm -rf "$srcJarDir" "$classesDir" "$headerClassesDir" `
+var kotlinZipSyncCmd = concat(android.Mkdir, ` -p $srcJarDir && `,
+	`${config.ZipSyncCmd} -d $srcJarDir -l $srcJarDir/list -f "*.java" -f "*.kt" $srcJars`)
 
-const moveDeltaStateFile = `mv $newStateFile $priorStateFile && rm $sourceDeltaFile`
+var nonIncKotlinCmd = concat(android.Rm, ` -rf "$classesDir" "$headerClassesDir" "$srcJarDir" "$kotlinBuildFile" "$emptyDir" && `,
+	android.Mkdir, ` -p "$classesDir" "$headerClassesDir" "$emptyDir" && `,
+	kotlinZipSyncCmd, ` && `+
+		`${config.GenKotlinBuildFileCmd} --classpath "$classpath" $friendPathsArg --name "$name"`+
+		` --out_dir "$classesDir" --srcs "$out.rsp" --srcs "$srcJarDir/list"`+
+		` $commonSrcFilesArg --out "$kotlinBuildFile" && `+
+		`PATH=${config.JavaToolchain}:$$PATH `+
+		`${config.KotlincCmd} ${config.KotlincGlobalFlags} `+
+		` ${config.KotlincSuppressJDK9Warnings} ${config.KotlincHeapFlags} `+
+		` $kotlincFlags -jvm-target $kotlinJvmTarget $composePluginFlag $kotlincPluginFlags -Xbuild-file=$kotlinBuildFile `+
+		` -kotlin-home $emptyDir `+
+		` -Xplugin=${config.KotlinAbiGenPluginJar} `+
+		` -P plugin:org.jetbrains.kotlin.jvm.abi:outputDir=$headerClassesDir && `+
+		`${config.SoongZipCmd} -jar $jarArgs -o $out -C $classesDir -D $classesDir -write_if_changed && `+
+		`${config.SoongZipCmd} -jar $jarArgs -o $headerJar -C $headerClassesDir -D $headerClassesDir -write_if_changed && `,
+	android.Rm, ` -rf "$srcJarDir" "$classesDir" "$headerClassesDir" `)
+
+var moveDeltaStateFile = concat(android.Mv, ` $newStateFile $priorStateFile && `, android.Rm, ` $sourceDeltaFile`)
+
+var bash = pctx.PathInterposerTool("bash")
 
 var kotlinc = pctx.AndroidRemoteStaticRule("kotlinc", android.RemoteRuleSupports{},
 	blueprint.RuleParams{
-		Command: inputDeltaCmd + ` && ` + nonIncKotlinCmd + ` && ` + moveDeltaStateFile,
+		Command2: blueprint.NewCommand(concat(inputDeltaCmd, ` && `, nonIncKotlinCmd, ` && `, moveDeltaStateFile)...),
 		CommandDeps: []string{
 			"${config.FindInputDeltaCmd}",
 			"${config.KotlincCmd}",
@@ -79,11 +94,16 @@ var kotlinc = pctx.AndroidRemoteStaticRule("kotlinc", android.RemoteRuleSupports
 			"${config.GenKotlinBuildFileCmd}",
 			"${config.SoongZipCmd}",
 			"${config.ZipSyncCmd}",
+			"${config.KotlinXCoroutinesJar}",
+			"${config.KotlinAnnotationsJvmJar}",
+			"${config.KotlinStdlibJdk7Jar}",
+			"${config.KotlinStdlibJdk8Jar}",
+			"${config.JavaCmd}",
 		},
-		Rspfile:         "$out.rsp",
-		RspfileContent:  `$in`,
-		Restat:          true,
-		SandboxDisabled: true,
+		CommandDepsTools: []blueprint.HostTool{bash, android.Dirname, android.Uname},
+		Rspfile:          "$out.rsp",
+		RspfileContent:   `$in`,
+		Restat:           true,
 	},
 	"kotlincFlags", "composePluginFlag", "kotlincPluginFlags", "classpath", "srcJars", "commonSrcFilesArg", "srcJarDir",
 	"classesDir", "headerClassesDir", "headerJar", "kotlinJvmTarget", "kotlinBuildFile", "emptyDir",
@@ -102,49 +122,49 @@ var kotlinJarSnapshot = pctx.AndroidRemoteStaticRule("kotlin-jar-snapshot", andr
 
 var kotlinIncremental = pctx.AndroidRemoteStaticRule("kotlin-incremental", android.RemoteRuleSupports{},
 	blueprint.RuleParams{
-		Command: // Incremental
+		Command2: blueprint.NewCommand(concat( // Incremental
+			inputDeltaCmd+` && `+
+				`. ${config.UsePartialCompileFile} && `+
+				`if [ "$$SOONG_USE_PARTIAL_COMPILE" = "true" ]; then `+
+				`rm -rf "$srcJarDir" "$kotlinBuildFile" "$emptyDir" && `+
+				`mkdir -p "$headerClassesDir" "$emptyDir" && `,
+			kotlinZipSyncCmd, ` && `+
+				`${config.GenKotlinBuildFileCmd} --classpath "$classpath" $friendPathsArg --name "$name"`+
+				` --out_dir "$classesDir" --srcs "$out.rsp" --srcs "$srcJarDir/list"`+
+				` $commonSrcFilesArg --out "$kotlinBuildFile" && `+
+				`${config.KotlinIncrementalClientBinary} ${config.KotlincGlobalFlags} `+
+				` ${config.KotlincSuppressJDK9Warnings} ${config.KotlincHeapFlags} `+
+				` $kotlincFlags $composeEmbeddablePluginFlag $kotlincPluginFlags `+
+				` -jvm-target $kotlinJvmTarget -build-file=$kotlinBuildFile `+
+				` -source-delta-file=$sourceDeltaFile`+
+				` -kotlin-home=$emptyDir `+
+				` -root-dir=$incrementalRootDir`+
+				` -src-jars-dir=$srcJarDir`+
+				` -output-dir=$outputDir`+
+				` -build-dir=$buildDir `+
+				` -working-dir=$workDir `+
+				` -Xplugin=${config.KotlinAbiGenPluginJar} `+
+				` -P plugin:org.jetbrains.kotlin.jvm.abi:outputDir=$headerClassesDir && `+
+				// abi-gen doesn't delete headers for deleted source files.
+				// To compensate, we diff the classesDir with the headerClassesDir and delete any
+				// header files that should no longer be there.
+				` EXISTING_CLASSES=$$(mktemp -p $classesDir) && `+
+				` EXISTING_HEADER_CLASSES=$$(mktemp -p $headerClassesDir) && `+
+				` (cd "$classesDir" && find . -type f | sort) > $$EXISTING_CLASSES && `+
+				` (cd "$headerClassesDir" && find . -type f | sort) > $$EXISTING_HEADER_CLASSES && `+
+				` comm -13 "$$EXISTING_CLASSES" "$$EXISTING_HEADER_CLASSES" `+
+				`   | while read -r filename; do rm "$headerClassesDir/$$filename"; done && `+
+				` rm $$EXISTING_CLASSES && rm -f $$EXISTING_HEADER_CLASSES && `+
+				`${config.SoongZipCmd} -jar $jarArgs -o $out -C $classesDir -D $classesDir -write_if_changed && `+
+				`${config.SoongZipCmd} -jar $jarArgs -o $headerJar -C $headerClassesDir -D $headerClassesDir -write_if_changed && `+
+				`rm -rf "$srcJarDir" ; `+
 
-		inputDeltaCmd + ` && ` +
-			`. ${config.UsePartialCompileFile} && ` +
-			`if [ "$$SOONG_USE_PARTIAL_COMPILE" = "true" ]; then ` +
-			`rm -rf "$srcJarDir" "$kotlinBuildFile" "$emptyDir" && ` +
-			`mkdir -p "$headerClassesDir" "$emptyDir" && ` +
-			kotlinZipSyncCmd + ` && ` +
-			`${config.GenKotlinBuildFileCmd} --classpath "$classpath" $friendPathsArg --name "$name"` +
-			` --out_dir "$classesDir" --srcs "$out.rsp" --srcs "$srcJarDir/list"` +
-			` $commonSrcFilesArg --out "$kotlinBuildFile" && ` +
-			`${config.KotlinIncrementalClientBinary} ${config.KotlincGlobalFlags} ` +
-			` ${config.KotlincSuppressJDK9Warnings} ${config.KotlincHeapFlags} ` +
-			` $kotlincFlags $composeEmbeddablePluginFlag $kotlincPluginFlags ` +
-			` -jvm-target $kotlinJvmTarget -build-file=$kotlinBuildFile ` +
-			` -source-delta-file=$sourceDeltaFile` +
-			` -kotlin-home=$emptyDir ` +
-			` -root-dir=$incrementalRootDir` +
-			` -src-jars-dir=$srcJarDir` +
-			` -output-dir=$outputDir` +
-			` -build-dir=$buildDir ` +
-			` -working-dir=$workDir ` +
-			` -Xplugin=${config.KotlinAbiGenPluginJar} ` +
-			` -P plugin:org.jetbrains.kotlin.jvm.abi:outputDir=$headerClassesDir && ` +
-			// abi-gen doesn't delete headers for deleted source files.
-			// To compensate, we diff the classesDir with the headerClassesDir and delete any
-			// header files that should no longer be there.
-			` EXISTING_CLASSES=$$(mktemp -p $classesDir) && ` +
-			` EXISTING_HEADER_CLASSES=$$(mktemp -p $headerClassesDir) && ` +
-			` (cd "$classesDir" && find . -type f | sort) > $$EXISTING_CLASSES && ` +
-			` (cd "$headerClassesDir" && find . -type f | sort) > $$EXISTING_HEADER_CLASSES && ` +
-			` comm -13 "$$EXISTING_CLASSES" "$$EXISTING_HEADER_CLASSES" ` +
-			`   | while read -r filename; do rm "$headerClassesDir/$$filename"; done && ` +
-			` rm $$EXISTING_CLASSES && rm -f $$EXISTING_HEADER_CLASSES && ` +
-			`${config.SoongZipCmd} -jar $jarArgs -o $out -C $classesDir -D $classesDir -write_if_changed && ` +
-			`${config.SoongZipCmd} -jar $jarArgs -o $headerJar -C $headerClassesDir -D $headerClassesDir -write_if_changed && ` +
-			`rm -rf "$srcJarDir" ; ` +
-
-			// Else non incremental
-			`else ` +
-			nonIncKotlinCmd + ` ; ` +
-			`fi && ` +
+				// Else non incremental
+				`else `,
+			nonIncKotlinCmd, ` ; `+
+				`fi && `,
 			moveDeltaStateFile,
+		)...),
 		CommandDeps: []string{
 			"${config.FindInputDeltaCmd}",
 			"${config.KotlincCmd}",
@@ -173,16 +193,17 @@ var kotlinIncremental = pctx.AndroidRemoteStaticRule("kotlin-incremental", andro
 
 var kotlinKytheExtract = pctx.AndroidStaticRule("kotlinKythe",
 	blueprint.RuleParams{
-		Command: `rm -rf "$srcJarDir" && ` +
-			kotlinZipSyncCmd + ` && ` +
-			`${config.KotlinKytheExtractor} -corpus ${kytheCorpus} --srcs @$out.rsp --srcs @"$srcJarDir/list" $commonSrcFilesList --cp @$classpath -o $out --kotlin_out $outJar ` +
-			// wrap the additional kotlin args.
-			// Skip Xbuild file, pass the cp explicitly.
-			// Skip header jars, those should not have an effect on kythe results.
-			` --args '${config.KotlincGlobalFlags} ` +
-			` ${config.KotlincSuppressJDK9Warnings} ${config.JavacHeapFlags} ` +
-			` $kotlincFlags $friendPathsArg $kotlincPluginFlags -jvm-target $kotlinJvmTarget ` +
-			`${config.KotlincKytheGlobalFlags}'`,
+		Command2: blueprint.NewCommand(concat(`rm -rf "$srcJarDir" && `,
+			kotlinZipSyncCmd, ` && `+
+				`${config.KotlinKytheExtractor} -corpus ${kytheCorpus} --srcs @$out.rsp --srcs @"$srcJarDir/list" $commonSrcFilesList --cp @$classpath -o $out --kotlin_out $outJar `+
+				// wrap the additional kotlin args.
+				// Skip Xbuild file, pass the cp explicitly.
+				// Skip header jars, those should not have an effect on kythe results.
+				` --args '${config.KotlincGlobalFlags} `+
+				` ${config.KotlincSuppressJDK9Warnings} ${config.JavacHeapFlags} `+
+				` $kotlincFlags $friendPathsArg $kotlincPluginFlags -jvm-target $kotlinJvmTarget `+
+				`${config.KotlincKytheGlobalFlags}'`,
+		)...),
 		CommandDeps: []string{
 			"${config.KotlinKytheExtractor}",
 			"${config.ZipSyncCmd}",
@@ -458,40 +479,41 @@ var kspIncrementalClean = pctx.AndroidStaticRule("ksp-partialcompileclean",
 
 var kspProcessingRule = pctx.AndroidRemoteStaticRule("ksp", android.RemoteRuleSupports{},
 	blueprint.RuleParams{
-		Command: `mkdir -p "$kspDir/out/java" "$kspDir/out/caches" "$kspDir/out/classes" "$kspDir/out/kotlin" "$kspDir/out/resources" && ` +
-			` . ${config.UsePartialCompileFile} && ` +
-			inputDeltaCmd + ` && ` +
-			kotlinZipSyncCmd + ` && ` +
-			`${config.KotlinKspClientBinary} ` +
-			` -jvm-target=$kotlinJvmTarget ` +
-			` -project-base-dir=. ` +
-			` -module-name=$name ` +
-			` -source-roots=@$out.rsp:@$srcJarDir/list ` +
-			` -src-jars-dir=$srcJarDir` +
-			` -libraries=@$classpath ` +
-			` -friends=$friendArg ` +
-			` -common-src-roots=$commonSrcRootArg ` +
-			` -output-base-dir=$kspDir/out ` +
-			` -java-output-dir=$kspDir/out/java ` +
-			` -caches-dir=$kspDir/out/caches ` +
-			` -class-output-dir=$kspDir/out/classes ` +
-			` -kotlin-output-dir=$kspDir/out/kotlin ` +
-			` -resource-output-dir=$kspDir/out/resources ` +
-			` -source-delta-file=$sourceDeltaFile ` +
-			` -incremental=$$([ "$$SOONG_USE_PARTIAL_COMPILE" = "true" ] && echo "true" || echo "false") ` +
-			` -language-version=2.2 ` +
-			` -api-version=2.2 ` +
-			` -processor-options=$processorOptions ` +
-			` $kspProcessorPath ` +
-			`&& ` +
-			`${config.SoongZipCmd} -jar -write_if_changed -o $out -C $kspDir/out/java -D $kspDir/out/java && ` +
-			`${config.SoongZipCmd} -jar -write_if_changed -o $kotlinSrcJarOutputFile -C $kspDir/out/kotlin -D $kspDir/out/kotlin && ` +
-			`${config.SoongZipCmd} -jar -write_if_changed -o $resJarOutputFile -C $kspDir/out/resources -D $kspDir/out/resources && ` +
-			`${config.SoongZipCmd} -jar -write_if_changed -o $classJarOutputFile -C $kspDir/out/classes -D $kspDir/out/classes && ` +
-			`if [ "$$SOONG_USE_PARTIAL_COMPILE" != "true" ]; then ` +
-			`  rm -rf "$kspDir/out/*"; ` +
-			`fi  && ` +
+		Command2: blueprint.NewCommand(concat(`mkdir -p "$kspDir/out/java" "$kspDir/out/caches" "$kspDir/out/classes" "$kspDir/out/kotlin" "$kspDir/out/resources" && `+
+			` . ${config.UsePartialCompileFile} && `+
+			inputDeltaCmd+` && `,
+			kotlinZipSyncCmd, ` && `+
+				`${config.KotlinKspClientBinary} `+
+				` -jvm-target=$kotlinJvmTarget `+
+				` -project-base-dir=. `+
+				` -module-name=$name `+
+				` -source-roots=@$out.rsp:@$srcJarDir/list `+
+				` -src-jars-dir=$srcJarDir`+
+				` -libraries=@$classpath `+
+				` -friends=$friendArg `+
+				` -common-src-roots=$commonSrcRootArg `+
+				` -output-base-dir=$kspDir/out `+
+				` -java-output-dir=$kspDir/out/java `+
+				` -caches-dir=$kspDir/out/caches `+
+				` -class-output-dir=$kspDir/out/classes `+
+				` -kotlin-output-dir=$kspDir/out/kotlin `+
+				` -resource-output-dir=$kspDir/out/resources `+
+				` -source-delta-file=$sourceDeltaFile `+
+				` -incremental=$$([ "$$SOONG_USE_PARTIAL_COMPILE" = "true" ] && echo "true" || echo "false") `+
+				` -language-version=2.2 `+
+				` -api-version=2.2 `+
+				` -processor-options=$processorOptions `+
+				` $kspProcessorPath `+
+				`&& `+
+				`${config.SoongZipCmd} -jar -write_if_changed -o $out -C $kspDir/out/java -D $kspDir/out/java && `+
+				`${config.SoongZipCmd} -jar -write_if_changed -o $kotlinSrcJarOutputFile -C $kspDir/out/kotlin -D $kspDir/out/kotlin && `+
+				`${config.SoongZipCmd} -jar -write_if_changed -o $resJarOutputFile -C $kspDir/out/resources -D $kspDir/out/resources && `+
+				`${config.SoongZipCmd} -jar -write_if_changed -o $classJarOutputFile -C $kspDir/out/classes -D $kspDir/out/classes && `+
+				`if [ "$$SOONG_USE_PARTIAL_COMPILE" != "true" ]; then `+
+				`  rm -rf "$kspDir/out/*"; `+
+				`fi  && `,
 			moveDeltaStateFile,
+		)...),
 		CommandDeps: []string{
 			"${config.FindInputDeltaCmd}",
 			"${config.GenKotlinBuildFileCmd}",

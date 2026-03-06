@@ -325,3 +325,16 @@ func (p PackageContext) HostTool(name string) blueprint.HostTool {
 		}
 	})
 }
+
+func (p PackageContext) PathInterposerTool(name string) blueprint.HostTool {
+	return p.HostToolFunc(func(ctx PathContext) blueprint.HostToolParams {
+		return blueprint.HostToolParams{
+			Value: PathForArbitraryOutput(ctx, ".path", name).String(),
+			Deps: []string{
+				PathForArbitraryOutput(ctx, ".path", name).String(),
+				PathForArbitraryOutput(ctx, ".path_interposer").String(),
+				PathForArbitraryOutput(ctx, ".path_interposer_origpath").String(),
+			},
+		}
+	})
+}
