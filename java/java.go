@@ -2006,9 +2006,7 @@ func (j *Test) generateAndroidBuildActionsWithConfig(ctx android.ModuleContext, 
 	j.data = append(j.data, android.PathsForModuleSrc(ctx, j.testProperties.Host_first_data)...)
 
 	if Bool(j.testProperties.Enable_static_aconfig_pb) {
-		if pb := getCombinedAconfigProtoFile(ctx); pb != nil {
-			j.extraResources = append(j.extraResources, pb)
-		}
+		addStaticAconfigProto(ctx, &j.extraResources)
 	}
 
 	j.extraTestConfigs = android.PathsForModuleSrc(ctx, j.testProperties.Test_options.Extra_test_configs)
@@ -4163,4 +4161,10 @@ func getCombinedAconfigProtoFile(ctx android.ModuleContext) android.Path {
 		return combinedAconfigProtoFile
 	}
 	return nil
+}
+
+func addStaticAconfigProto(ctx android.ModuleContext, extraResources *android.Paths) {
+	if pb := getCombinedAconfigProtoFile(ctx); pb != nil {
+		*extraResources = append(*extraResources, pb)
+	}
 }
