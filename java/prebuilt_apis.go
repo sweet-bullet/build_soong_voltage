@@ -95,6 +95,13 @@ func parsePrebuiltPath(ctx android.LoadHookContext, p string) (module string, ve
 func parseFinalizedPrebuiltPath(ctx android.LoadHookContext, p string) (module string, version int, release int, scope string) {
 	module, v, scope := parsePrebuiltPath(ctx, p)
 
+	// Hack for 37-prefinalized (b/489350505). This provides a stable reference for
+	// bp4a and mainline-beta builds that cannot use the finalized 37.0 SDK.
+	// TODO(b/491744570): Remove this hack
+	if v == "37-prefinalized" {
+		return module, 37, 0, scope
+	}
+
 	// assume a major.minor version code
 	parts := strings.Split(v, ".")
 	if len(parts) == 2 {
