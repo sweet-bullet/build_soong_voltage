@@ -36,18 +36,18 @@ func RegisterPrebuiltApisBuildComponents(ctx android.RegistrationContext) {
 
 type prebuiltApisProperties struct {
 	// list of api version directories
-	Api_dirs []string
+	Api_dirs proptools.Configurable[[]string]
 
 	// Directory containing finalized api txt files for extension versions.
 	// Extension versions higher than the base sdk extension version will
 	// be assumed to be finalized later than all Api_dirs.
-	Extensions_dir *string
+	Extensions_dir proptools.Configurable[string]
 
 	// The next API directory can optionally point to a directory where
 	// files incompatibility-tracking files are stored for the current
 	// "in progress" API. Each module present in one of the api_dirs will have
 	// a <module>-incompatibilities.api.<scope>.latest module created.
-	Next_api_dir *string
+	Next_api_dir proptools.Configurable[string]
 
 	// The sdk_version of java_import modules generated based on jar files.
 	// Defaults to "current"
@@ -197,7 +197,8 @@ func createEmptyFile(mctx android.LoadHookContext, name string) {
 // <api-dir>/<scope>/<glob> for all api-dir and scope.
 func globApiDirs(mctx android.LoadHookContext, p *prebuiltApis, api_dir_glob string) []string {
 	var files []string
-	for _, apiver := range p.properties.Api_dirs {
+	eval := p.getEvaluator(mctx)
+	for _, apiver := range p.properties.Api_dirs.GetOrDefault(eval, nil) {
 		files = append(files, globScopeDir(mctx, apiver, api_dir_glob)...)
 	}
 	return files
@@ -207,7 +208,12 @@ func globApiDirs(mctx android.LoadHookContext, p *prebuiltApis, api_dir_glob str
 // <extension-dir>/<version>/<scope>/<glob> for all version and scope.
 func globExtensionDirs(mctx android.LoadHookContext, p *prebuiltApis, extension_dir_glob string) []string {
 	// <extensions-dir>/<num>/<extension-dir-glob>
-	return globScopeDir(mctx, *p.properties.Extensions_dir+"/*", extension_dir_glob)
+	eval := p.getEvaluator(mctx)
+	extDir := p.properties.Extensions_dir.GetOrDefault(eval, "")
+	if extDir == "" {
+		return nil
+	}
+	return globScopeDir(mctx, extDir+"/*", extension_dir_glob)
 }
 
 // globScopeDir collects all the files in the given subdir across all scopes that match the given glob, e.g. '*.jar' or 'api/*.txt'.
@@ -308,7 +314,8 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 	}
 
 	latest := getLatest(apiLevelFiles, false)
-	if p.properties.Extensions_dir != nil {
+	eval := p.getEvaluator(mctx)
+	if extDir := p.properties.Extensions_dir.GetOrDefault(eval, ""); extDir != "" {
 		extensionApiFiles := globExtensionDirs(mctx, p, "api/*.txt")
 		for k, v := range getLatest(extensionApiFiles, true) {
 			if _, exists := latest[k]; !exists {
@@ -336,7 +343,7 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 
 	// Create incompatibilities tracking files for all modules, if we have a "next" api.
 	incompatibilities := make(map[string]bool)
-	if nextApiDir := String(p.properties.Next_api_dir); nextApiDir != "" {
+	if nextApiDir := p.properties.Next_api_dir.GetOrDefault(eval, ""); nextApiDir != "" {
 		files := globScopeDir(mctx, nextApiDir, "api/*incompatibilities.txt")
 		for _, f := range files {
 			filename, _, scope := parsePrebuiltPath(mctx, f)
@@ -380,6 +387,38 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 		android.ReverseSliceInPlace(srcs)
 		createCombinedApiFilegroupModule(mctx, name, srcs)
 	}
+}
+
+// releaseFlagOnlyEvaluator and configurableEvaluatorContextWrapper are a hack to enable bp4a config to build.
+// TODO(b/491744570): Refactor prebuilt_apis to not require evaluating the flags during module creation.
+func (p *prebuiltApis) getEvaluator(ctx android.LoadHookContext) proptools.ConfigurableEvaluator {
+	return releaseFlagOnlyEvaluator{p.ConfigurableEvaluator(configurableEvaluatorContextWrapper{ctx})}
+}
+
+type releaseFlagOnlyEvaluator struct {
+	proptools.ConfigurableEvaluator
+}
+
+func (e releaseFlagOnlyEvaluator) EvaluateConfiguration(condition proptools.ConfigurableCondition, property string) proptools.ConfigurableValue {
+	if condition.FunctionName() != "release_flag" {
+		e.PropertyErrorf(property, "Only release_flag is supported in selects for prebuilt_apis, found %s", condition.FunctionName())
+		return proptools.ConfigurableValueUndefined()
+	}
+	return e.ConfigurableEvaluator.EvaluateConfiguration(condition, property)
+}
+
+// configurableEvaluatorContextWrapper is a wrapper for android.LoadHookContext
+// that allows evaluating configurable properties during load hooks by overriding
+// HasMutatorFinished("defaults") to return true.
+type configurableEvaluatorContextWrapper struct {
+	android.LoadHookContext
+}
+
+func (c configurableEvaluatorContextWrapper) HasMutatorFinished(mutatorName string) bool {
+	if mutatorName == "defaults" {
+		return true
+	}
+	return c.LoadHookContext.HasMutatorFinished(mutatorName)
 }
 
 func createPrebuiltApiModules(mctx android.LoadHookContext) {
