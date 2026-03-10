@@ -89,6 +89,7 @@ func init() {
 	// the time to remove them yet
 	flag.BoolVar(&cmdlineArgs.RunGoTests, "t", false, "build and run go tests during bootstrap")
 	flag.BoolVar(&cmdlineArgs.IncrementalBuildActions, "incremental-build-actions", false, "generate build actions incrementally")
+	flag.StringVar(&cmdlineArgs.PartialAnalysisTargets, "partial-analysis-targets", "", "partial analysis targets")
 	flag.BoolVar(&cmdlineArgs.IncrementalProviderTest, "incremental-provider-test", false, "test incremental providers restoring")
 	flag.StringVar(&cmdlineArgs.IncrementalDebugFile, "incremental-debug-file", "", "incremental debug file")
 
@@ -350,6 +351,7 @@ func main() {
 		ctx.SetIncrementalProviderTest(incremental && cmdlineArgs.IncrementalProviderTest)
 	}
 	ctx.SetIncrementalAnalysis(incremental)
+	ctx.SetPartialAnalysisTargets(cmdlineArgs.PartialAnalysisTargets)
 	ctx.SetIncrementalDebugFile(cmdlineArgs.IncrementalDebugFile)
 
 	if configuration.Getenv("SOONG_SPLIT_ALL_VARIANTS") == "true" ||

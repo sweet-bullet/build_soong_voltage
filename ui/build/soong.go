@@ -317,6 +317,9 @@ func bootstrapBlueprint(ctx Context, config Config) {
 	if config.incrementalBuildActions {
 		mainSoongBuildExtraArgs = append(mainSoongBuildExtraArgs, "--incremental-build-actions")
 	}
+	if len(config.partialAnalysisTargets) > 0 {
+		mainSoongBuildExtraArgs = append(mainSoongBuildExtraArgs, fmt.Sprintf("%s=\"%s\"", "--partial-analysis-targets", config.partialAnalysisTargets))
+	}
 	if config.incrementalProviderTest {
 		mainSoongBuildExtraArgs = append(mainSoongBuildExtraArgs, "--incremental-provider-test")
 	}

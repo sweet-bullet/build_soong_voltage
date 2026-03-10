@@ -234,6 +234,10 @@ func Banner(config Config, make_vars map[string]string) string {
 
 	fmt.Fprintf(b, "SOONG_INCREMENTAL_ANALYSIS=%t\n", config.incrementalBuildActions)
 
+	if len(config.partialAnalysisTargets) > 0 {
+		fmt.Fprintf(b, "SOONG_PARTIAL_ANALYSIS=%s\n", config.partialAnalysisTargets)
+	}
+
 	fmt.Fprint(b, "============================================")
 
 	return b.String()

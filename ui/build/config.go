@@ -127,6 +127,7 @@ type configImpl struct {
 	incrementalBuildActions             bool
 	incrementalBuildActionsSetInEnv     bool
 	incrementalProviderTest             bool
+	partialAnalysisTargets              string
 	ensureAllowlistIntegrity            bool // For CI builds - make sure modules are mixed-built
 	runCIPDProxyServer                  bool
 	runCIPDProxyServerControlledByFlags bool
@@ -359,6 +360,10 @@ func newConfig(ctx Context, isDumpVar bool, args ...string) Config {
 	} else if ret.environ.IsFalse("SOONG_INCREMENTAL_ANALYSIS") {
 		ret.incrementalBuildActions = false
 		ret.incrementalBuildActionsSetInEnv = true
+	}
+
+	if value, ok := ret.environ.Get("SOONG_PARTIAL_ANALYSIS"); ok {
+		ret.partialAnalysisTargets = value
 	}
 
 	if ret.ninjaWeightListSource == HINT_FROM_SOONG {
