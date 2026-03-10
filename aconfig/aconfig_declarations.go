@@ -193,6 +193,9 @@ func (module *DeclarationsModule) GenerateAndroidBuildActions(ctx android.Module
 		copy(inputFiles, declarationFiles)
 		inputFiles = append(inputFiles, valuesFiles[config]...)
 		mainlineBetaNamespaceConfig := ctx.Config().ReleaseMainlineBetaNamespaceConfig()
+		if mainlineBetaNamespaceConfig != "" {
+			inputFiles = append(inputFiles, android.PathForSource(ctx, mainlineBetaNamespaceConfig))
+		}
 		args := map[string]string{
 			"release_version":                ctx.Config().ReleaseVersion(),
 			"package":                        module.properties.Package,

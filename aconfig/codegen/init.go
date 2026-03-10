@@ -15,64 +15,62 @@
 package codegen
 
 import (
+	"android/soong/aconfig"
 	"android/soong/android"
 
 	"github.com/google/blueprint"
 )
 
 var (
-	pctx = android.NewPackageContext("android/soong/aconfig/codegen")
+	pctx        = android.NewPackageContext("android/soong/aconfig/codegen")
+	rm          = android.Rm
+	mkdir       = android.Mkdir
+	aconfigTool = aconfig.Aconfig
+	soongZip    = android.SoongZip
 
 	// For java_aconfig_library: Generate java library
 	javaRule = pctx.AndroidStaticRule("java_aconfig_library",
 		blueprint.RuleParams{
 			// LINT.IfChange
-			Command: `rm -rf ${out}.tmp` +
-				` && mkdir -p ${out}.tmp` +
-				` && ${aconfig} create-java-lib` +
-				`    --mode ${mode}` +
-				`    --allow-impl-interface-removal ${allow_impl_interface_removal}` +
-				`    --cache ${in}` +
-				`    --out ${out}.tmp` +
-				` && $soong_zip -write_if_changed -jar -o ${out} -C ${out}.tmp -D ${out}.tmp` +
-				` && rm -rf ${out}.tmp`,
+			Command2: blueprint.NewCommand(
+				rm, ` -rf ${out}.tmp && `,
+				mkdir, ` -p ${out}.tmp && `,
+				aconfigTool, ` create-java-lib`,
+				`    --mode ${mode}`,
+				`    --allow-impl-interface-removal ${allow_impl_interface_removal}`,
+				`    --cache ${in}`,
+				`    --out ${out}.tmp && `,
+				soongZip, ` -write_if_changed -jar -o ${out} -C ${out}.tmp -D ${out}.tmp && `,
+				rm, ` -rf ${out}.tmp`,
+			),
 			// LINT.ThenChange(/aconfig/init.go)
-			CommandDeps: []string{
-				"$aconfig",
-				"$soong_zip",
-			},
-			Restat:          true,
-			SandboxDisabled: true,
+			Restat: true,
 		}, "mode", "allow_impl_interface_removal")
 
 	// For cc_aconfig_library: Generate C++ library
 	cppRule = pctx.AndroidStaticRule("cc_aconfig_library",
 		blueprint.RuleParams{
-			Command: `rm -rf ${gendir}` +
-				` && mkdir -p ${gendir}` +
-				` && ${aconfig} create-cpp-lib` +
-				`    --mode ${mode}` +
-				`    --cache ${in}` +
+			Command2: blueprint.NewCommand(
+				rm, ` -rf ${gendir} && `,
+				mkdir, ` -p ${gendir} && `,
+				aconfigTool, ` create-cpp-lib`,
+				`    --mode ${mode}`,
+				`    --cache ${in}`,
 				`    --out ${gendir}`,
-			CommandDeps: []string{
-				"$aconfig",
-			},
-			SandboxDisabled: true,
+			),
 		}, "gendir", "mode")
 
 	// For rust_aconfig_library: Generate Rust library
 	rustRule = pctx.AndroidStaticRule("rust_aconfig_library",
 		blueprint.RuleParams{
-			Command: `rm -rf ${gendir}` +
-				` && mkdir -p ${gendir}` +
-				` && ${aconfig} create-rust-lib` +
-				`    --mode ${mode}` +
-				`    --cache ${in}` +
+			Command2: blueprint.NewCommand(
+				rm, ` -rf ${gendir} && `,
+				mkdir, ` -p ${gendir} && `,
+				aconfigTool, ` create-rust-lib`,
+				`    --mode ${mode}`,
+				`    --cache ${in}`,
 				`    --out ${gendir}`,
-			CommandDeps: []string{
-				"$aconfig",
-			},
-			SandboxDisabled: true,
+			),
 		}, "gendir", "mode")
 )
 

@@ -118,7 +118,7 @@ var (
 	deapexer                       = pctx.HostTool("deapexer")
 	debugfs                        = pctx.HostTool("debugfs")
 	fsck_erofs                     = pctx.HostTool("fsck.erofs")
-	aconfigTool                    = pctx.HostTool("aconfig")
+	aconfigTool                    = aconfig.Aconfig
 	apex_ls                        = pctx.HostTool("apex-ls")
 	apex_sepolicy_tests            = pctx.HostTool("apex_sepolicy_tests")
 	zip2zip                        = pctx.HostTool("zip2zip")
