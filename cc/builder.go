@@ -107,25 +107,29 @@ var (
 	// Rule to invoke `ar` with given cmd and flags, but no static library depenencies.
 	ar = pctx.AndroidStaticRule("ar",
 		blueprint.RuleParams{
-			Command:         "rm -f ${out} && $arCmd $arFlags $out @${out}.rsp",
-			CommandDeps:     []string{"$arCmd"},
-			Rspfile:         "${out}.rsp",
-			RspfileContent:  "${in}",
-			SandboxDisabled: true,
+			Command2: blueprint.NewCommand(
+				android.Rm, " -f ${out} && ",
+				"${config.ClangBin}/llvm-ar $arFlags $out @${out}.rsp",
+			),
+			CommandDeps:    []string{"${config.ClangBin}/llvm-ar"},
+			Rspfile:        "${out}.rsp",
+			RspfileContent: "${in}",
 		},
-		"arCmd", "arFlags")
+		"arFlags")
 
 	// Rule to invoke `ar` with given cmd, flags, and library dependencies. Generates a .a
 	// (archive) file from .o files.
 	arWithLibs = pctx.AndroidStaticRule("arWithLibs",
 		blueprint.RuleParams{
-			Command:         "rm -f ${out} && $arCmd $arObjFlags $out @${out}.rsp && $arCmd $arLibFlags $out $arLibs",
-			CommandDeps:     []string{"$arCmd"},
-			Rspfile:         "${out}.rsp",
-			RspfileContent:  "${arObjs}",
-			SandboxDisabled: true,
+			Command2: blueprint.NewCommand(
+				android.Rm, " -f ${out} && ",
+				"${config.ClangBin}/llvm-ar $arObjFlags $out @${out}.rsp && ${config.ClangBin}/llvm-ar $arLibFlags $out $arLibs",
+			),
+			CommandDeps:    []string{"${config.ClangBin}/llvm-ar"},
+			Rspfile:        "${out}.rsp",
+			RspfileContent: "${arObjs}",
 		},
-		"arCmd", "arObjFlags", "arObjs", "arLibFlags", "arLibs")
+		"arObjFlags", "arObjs", "arLibFlags", "arLibs")
 
 	// Rule to run objcopy --prefix-symbols (to prefix all symbols in a file with a given string).
 	prefixSymbols = pctx.AndroidStaticRule("prefixSymbols",
@@ -888,7 +892,6 @@ func transformObjToStaticLib(ctx android.ModuleContext,
 	objFiles android.Paths, wholeStaticLibs android.Paths,
 	flags builderFlags, outputFile android.ModuleOutPath, deps android.Paths, validations android.Paths) {
 
-	arCmd := "${config.ClangBin}/llvm-ar"
 	arFlags := ""
 	if !ctx.Darwin() {
 		arFlags += " --format=gnu"
@@ -904,7 +907,6 @@ func transformObjToStaticLib(ctx android.ModuleContext,
 			Validations: validations,
 			Args: map[string]string{
 				"arFlags": "crsPD" + arFlags,
-				"arCmd":   arCmd,
 			},
 		})
 
@@ -916,7 +918,6 @@ func transformObjToStaticLib(ctx android.ModuleContext,
 			Inputs:      append(objFiles, wholeStaticLibs...),
 			Implicits:   deps,
 			Args: map[string]string{
-				"arCmd":      arCmd,
 				"arObjFlags": "crsPD" + arFlags,
 				"arObjs":     strings.Join(objFiles.Strings(), " "),
 				"arLibFlags": "cqsL" + arFlags,
