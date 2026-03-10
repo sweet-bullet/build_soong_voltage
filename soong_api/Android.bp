@@ -23,6 +23,7 @@ bootstrap_go_package {
         "blueprint",
         "blueprint-proptools",
         "soong-android",
+        "soong-cc",
         "soong-java",
     ],
     srcs: [

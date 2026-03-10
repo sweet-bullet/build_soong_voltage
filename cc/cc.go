@@ -1132,6 +1132,17 @@ func IsStaticDepTag(depTag blueprint.DependencyTag) bool {
 	return ok && ccLibDepTag.static()
 }
 
+// IsWholeStaticDepTag returns true if the depTag is a libraryDependencyTag with wholeStatic set to true.
+func IsWholeStaticDepTag(depTag blueprint.DependencyTag) bool {
+	ccLibDepTag, ok := depTag.(libraryDependencyTag)
+	return ok && ccLibDepTag.static() && ccLibDepTag.wholeStatic
+}
+
+// IsCrtDepTag returns true if the depTag is CrtBeginDepTag or CrtEndDepTag.
+func IsCrtDepTag(depTag blueprint.DependencyTag) bool {
+	return depTag == CrtBeginDepTag || depTag == CrtEndDepTag
+}
+
 func IsHeaderDepTag(depTag blueprint.DependencyTag) bool {
 	ccLibDepTag, ok := depTag.(libraryDependencyTag)
 	return ok && ccLibDepTag.header()

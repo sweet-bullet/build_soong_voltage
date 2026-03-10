@@ -16,6 +16,7 @@ package soong_api
 
 import (
 	"android/soong/android"
+	"android/soong/cc"
 	"android/soong/java"
 	"archive/zip"
 	"bytes"
@@ -65,12 +66,21 @@ type SoongApiModuleRecord struct {
 	TestOnly       bool `json:"test_only,omitempty"`
 	TopLevelTarget bool `json:"top_level_target,omitempty"`
 
-	// Java
-	TransitiveSrcFiles []string `json:"transitive_src_files,omitempty"` // Srcs
-	Libs               []string `json:"libs,omitempty"`                 // Module names
-	LibFiles           []string `json:"lib_flies,omitempty"`            // Lib paths to jars
-	StaticLibs         []string `json:"static_libs,omitempty"`          // Module names
-	StaticLibFiles     []string `json:"static_lib_files,omitempty"`     // Path to jars
+	// Java / CC
+	TransitiveSrcFiles []string `json:"transitive_src_files,omitempty"` // Java sources
+	Libs               []string `json:"libs,omitempty"`                 // Java javalib / CC sharedLibs
+	LibFiles           []string `json:"lib_files,omitempty"`            // Path to jars or .a
+	StaticLibs         []string `json:"static_libs,omitempty"`          // Java staticlib / CC staticLibs
+	StaticLibFiles     []string `json:"static_lib_files,omitempty"`     // Path to jars or .a
+
+	// For CC
+	WholeStaticLibs     []string `json:"whole_static_libs,omitempty"`
+	WholeStaticLibFiles []string `json:"whole_static_lib_files,omitempty"`
+	HeaderLibs          []string `json:"header_libs,omitempty"`
+
+	// CRT
+	CrtLibs     []string `json:"crt_libs,omitempty"`
+	CrtLibFiles []string `json:"crt_lib_files,omitempty"`
 }
 
 func soongApiSingletonFactory() android.Singleton {
@@ -148,6 +158,55 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 			record.TestOnly = commonInfo.TestModuleInfo.TestOnly
 			record.TopLevelTarget = commonInfo.TestModuleInfo.TopLevelTarget
 		}
+
+		if _, ok := android.OtherModuleProvider(ctx, m, cc.CcInfoProvider); ok {
+			// Enhance BuiltFiles (retrieve more precise output paths from LinkableInfoProvider)
+			if linkableInfo, ok := android.OtherModuleProvider(ctx, m, cc.LinkableInfoProvider); ok {
+				if linkableInfo.OutputFile.Valid() {
+					record.BuiltFiles = append(record.BuiltFiles, linkableInfo.OutputFile.Path().String())
+				}
+			}
+
+			// Get direct dep's Provider
+			ctx.VisitDirectDepsProxies(m, func(dep android.ModuleProxy) {
+				tag := ctx.OtherModuleDependencyTag(dep)
+				depName := ctx.ModuleName(dep)
+
+				// Retrieve output paths for dependencies via LinkableInfo
+				var depFiles []string
+				if depLinkable, ok := android.OtherModuleProvider(ctx, dep, cc.LinkableInfoProvider); ok {
+					if depLinkable.OutputFile.Valid() {
+						depFiles = append(depFiles, depLinkable.OutputFile.Path().String())
+					}
+				}
+
+				if cc.IsWholeStaticDepTag(tag) {
+					record.WholeStaticLibs = append(record.WholeStaticLibs, depName)
+					record.WholeStaticLibFiles = append(record.WholeStaticLibFiles, depFiles...)
+				} else if cc.IsStaticDepTag(tag) {
+					record.StaticLibs = append(record.StaticLibs, depName)
+					record.StaticLibFiles = append(record.StaticLibFiles, depFiles...)
+				} else if cc.IsCrtDepTag(tag) {
+					record.CrtLibs = append(record.CrtLibs, depName)
+					record.CrtLibFiles = append(record.CrtLibFiles, depFiles...)
+				} else if cc.IsSharedDepTag(tag) {
+					record.Libs = append(record.Libs, depName)
+					record.LibFiles = append(record.LibFiles, depFiles...)
+				} else if cc.IsHeaderDepTag(tag) {
+					record.HeaderLibs = append(record.HeaderLibs, depName)
+				}
+			})
+		}
+
+		// --- Final data deduplication and cleanup ---
+		record.BuiltFiles = android.FirstUniqueStrings(record.BuiltFiles)
+		record.StaticLibs = android.FirstUniqueStrings(record.StaticLibs)
+		record.StaticLibFiles = android.FirstUniqueStrings(record.StaticLibFiles)
+		record.Libs = android.FirstUniqueStrings(record.Libs)
+		record.LibFiles = android.FirstUniqueStrings(record.LibFiles)
+		record.WholeStaticLibs = android.FirstUniqueStrings(record.WholeStaticLibs)
+		record.WholeStaticLibFiles = android.FirstUniqueStrings(record.WholeStaticLibFiles)
+		record.HeaderLibs = android.FirstUniqueStrings(record.HeaderLibs)
 
 		records = append(records, record)
 	})
