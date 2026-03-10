@@ -23,83 +23,103 @@ import (
 var (
 	pctx = android.NewPackageContext("android/soong/aconfig/build_flags")
 
+	buildFlagInternal          = pctx.HostTool("build-flag-internal")
+	buildFlagDeclarations      = pctx.HostTool("build-flag-declarations")
+	releaseConfigInternal      = pctx.HostTool("release-config-internal")
+	releaseConfigContributions = pctx.HostTool("release-config-contributions")
+	cpIfChanged                = android.CpIfChanged
+
 	// For build_flag_declarations: Generate cache file
 	buildFlagRule = pctx.AndroidStaticRule("build-flag-declarations",
 		blueprint.RuleParams{
-			Command: `${buildFlagDeclarations} ` +
-				` ${declarations}` +
-				` --format pb` +
-				` --output ${out}.tmp` +
-				` && ( if cmp -s ${out}.tmp ${out} ; then rm ${out}.tmp ; else mv ${out}.tmp ${out} ; fi )`,
-			CommandDeps: []string{
-				"${buildFlagDeclarations}",
-			},
+			Command2: blueprint.NewCommand(
+				buildFlagDeclarations,
+				` --top .`,
+				` ${declarations}`,
+				` --format pb`,
+				` --output ${out}.tmp && `,
+				cpIfChanged, ` ${out}.tmp ${out}`,
+			),
 			Restat:          true,
 			SandboxDisabled: true,
 		}, "release_version", "declarations")
 
 	buildFlagTextRule = pctx.AndroidStaticRule("build-flag-declarations-text",
 		blueprint.RuleParams{
-			Command: `${buildFlagDeclarations} --format=textproto` +
-				` --intermediate ${in}` +
-				` --format textproto` +
-				` --output ${out}.tmp` +
-				` && ( if cmp -s ${out}.tmp ${out} ; then rm ${out}.tmp ; else mv ${out}.tmp ${out} ; fi )`,
-			CommandDeps: []string{
-				"${buildFlagDeclarations}",
-			},
+			Command2: blueprint.NewCommand(
+				buildFlagDeclarations,
+				` --top .`,
+				` --format=textproto`,
+				` --intermediate ${in}`,
+				` --format textproto`,
+				` --output ${out}.tmp && `,
+				cpIfChanged, ` ${out}.tmp ${out}`,
+			),
 			Restat:          true,
 			SandboxDisabled: true,
 		})
 
 	allDeclarationsRule = pctx.AndroidStaticRule("all-build-flag-declarations-dump",
 		blueprint.RuleParams{
-			Command: `${buildFlagDeclarations} ${intermediates} --format pb --output ${out}`,
-			CommandDeps: []string{
-				"${buildFlagDeclarations}",
-			},
+			Command2: blueprint.NewCommand(
+				buildFlagDeclarations,
+				` --top .`,
+				` ${intermediates}`,
+				` --format pb`,
+				` --output ${out}`,
+			),
 			Restat:          true,
 			SandboxDisabled: true,
 		}, "intermediates")
 
 	allDeclarationsRuleTextProto = pctx.AndroidStaticRule("All_build_flag_declarations_dump_textproto",
 		blueprint.RuleParams{
-			Command: `${buildFlagDeclarations} --intermediate ${in} --format textproto --output ${out}`,
-			CommandDeps: []string{
-				"${buildFlagDeclarations}",
-			},
+			Command2: blueprint.NewCommand(
+				buildFlagDeclarations,
+				` --top .`,
+				` --intermediate ${in}`,
+				` --format textproto`,
+				` --output ${out}`,
+			),
 			Restat:          true,
 			SandboxDisabled: true,
 		})
 
 	allReleaseConfigsRule = pctx.AndroidStaticRule("All_release_configs",
 		blueprint.RuleParams{
-			Command: "${releaseConfigInternal} --quiet `cat ${argsFile}` --out_dir ${moduleOut}" +
+			Command2: blueprint.NewCommand(
+				releaseConfigInternal,
+				" --top .",
+				" --quiet `", android.Cat, " ${argsFile}`",
+				" --out_dir ${moduleOut}",
 				" --pb --textproto --json --inheritance",
-			CommandDeps: []string{
-				"${releaseConfigInternal}",
-			},
+			),
 			Restat:          true,
 			SandboxDisabled: true,
 		}, "argsFile", "moduleOut", "product")
 
 	releaseConfigRule = pctx.AndroidStaticRule("Release_config",
 		blueprint.RuleParams{
-			Command: "${releaseConfigInternal} --quiet `cat ${argsFile}` --out_dir ${moduleOut}" +
+			Command2: blueprint.NewCommand(
+				releaseConfigInternal,
+				" --top .",
+				" --quiet `", android.Cat, " ${argsFile}`",
+				" --out_dir ${moduleOut}",
 				" --container",
-			CommandDeps: []string{
-				"${releaseConfigInternal}",
-			},
+			),
 			Restat:          true,
 			SandboxDisabled: true,
 		}, "argsFile", "moduleOut", "product")
 
 	allReleaseConfigContributionsRule = pctx.AndroidStaticRule("all-release-config-contributions-dump",
 		blueprint.RuleParams{
-			Command: `${releaseConfigContributions} ${dirs} --format ${format} --output ${out}`,
-			CommandDeps: []string{
-				"${releaseConfigContributions}",
-			},
+			Command2: blueprint.NewCommand(
+				releaseConfigContributions,
+				" --top .",
+				` ${dirs}`,
+				` --format ${format}`,
+				` --output ${out}`,
+			),
 			Restat:          true,
 			SandboxDisabled: true,
 		}, "dirs", "format")
@@ -107,10 +127,13 @@ var (
 	flagDeclarationsValidationRule = pctx.AndroidStaticRule("flagDeclarationsValidation",
 		blueprint.RuleParams{
 			// Get no flags, so that we have no output.
-			Command: `${buildFlagInternal} --maps-file ${in} --quiet --declarations-only get && date > ${out}`,
-			CommandDeps: []string{
-				"${buildFlagInternal}",
-			},
+			Command2: blueprint.NewCommand(
+				buildFlagInternal,
+				` --top .`,
+				` --maps-file ${in}`,
+				` --quiet`,
+				` --declarations-only get && date > ${out}`,
+			),
 			Restat:          true,
 			SandboxDisabled: true,
 		})
