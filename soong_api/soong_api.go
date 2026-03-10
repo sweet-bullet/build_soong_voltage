@@ -18,6 +18,7 @@ import (
 	"android/soong/android"
 	"android/soong/cc"
 	"android/soong/java"
+	"android/soong/rust"
 	"archive/zip"
 	"bytes"
 	"encoding/json"
@@ -66,14 +67,14 @@ type SoongApiModuleRecord struct {
 	TestOnly       bool `json:"test_only,omitempty"`
 	TopLevelTarget bool `json:"top_level_target,omitempty"`
 
-	// Java / CC
+	// Java / CC / Rust
 	TransitiveSrcFiles []string `json:"transitive_src_files,omitempty"` // Java sources
 	Libs               []string `json:"libs,omitempty"`                 // Java javalib / CC sharedLibs
 	LibFiles           []string `json:"lib_files,omitempty"`            // Path to jars or .a
 	StaticLibs         []string `json:"static_libs,omitempty"`          // Java staticlib / CC staticLibs
 	StaticLibFiles     []string `json:"static_lib_files,omitempty"`     // Path to jars or .a
 
-	// For CC
+	// For CC / Rust
 	WholeStaticLibs     []string `json:"whole_static_libs,omitempty"`
 	WholeStaticLibFiles []string `json:"whole_static_lib_files,omitempty"`
 	HeaderLibs          []string `json:"header_libs,omitempty"`
@@ -194,6 +195,38 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 					record.LibFiles = append(record.LibFiles, depFiles...)
 				} else if cc.IsHeaderDepTag(tag) {
 					record.HeaderLibs = append(record.HeaderLibs, depName)
+				}
+			})
+		}
+
+		// Collect Rust modules information
+		if _, ok := android.OtherModuleProvider(ctx, m, rust.RustInfoProvider); ok {
+			ctx.VisitDirectDepsProxies(m, func(dep android.ModuleProxy) {
+				tag := ctx.OtherModuleDependencyTag(dep)
+				depName := ctx.ModuleName(dep)
+
+				// Retrieve output paths via LinkableInfoProvider, as Rust shares this with other native modules.
+				var depFiles []string
+				if depLinkable, ok := android.OtherModuleProvider(ctx, dep, cc.LinkableInfoProvider); ok {
+					if depLinkable.OutputFile.Valid() {
+						depFiles = append(depFiles, depLinkable.OutputFile.Path().String())
+					}
+				}
+
+				// For rust modules, treat rust_library and cc_static_lib as static deps.
+				if rust.IsRlibDepTag(tag) {
+					record.StaticLibs = append(record.StaticLibs, depName)
+					record.StaticLibFiles = append(record.StaticLibFiles, depFiles...)
+				}
+
+				if cc.IsStaticDepTag(tag) {
+					record.StaticLibs = append(record.StaticLibs, depName)
+					record.StaticLibFiles = append(record.StaticLibFiles, depFiles...)
+				}
+
+				if cc.IsWholeStaticDepTag(tag) {
+					record.WholeStaticLibs = append(record.WholeStaticLibs, depName)
+					record.WholeStaticLibFiles = append(record.WholeStaticLibFiles, depFiles...)
 				}
 			})
 		}
