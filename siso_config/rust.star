@@ -17,7 +17,15 @@ def __step_config(ctx, vars, step_config):
         ])
         return step_config
 
-    # TODO: siso native remote
+    step_config["rules"].extend([
+        {
+            "name": "g.rust.rustc",
+            "action": "g.rust.rustc",
+            "remote": True,
+            "timeout": "20m",
+            # "debug": True,
+        },
+    ])
     return step_config
 
 rust = module(
