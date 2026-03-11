@@ -15,7 +15,7 @@
 import dataclasses
 import json
 from dataclasses import field
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 from api.env import BuildContext
 from api import env, build, ninja, config, module
 from .schema import ToolArgs
@@ -72,7 +72,7 @@ def raise_reanalysis_error(build_failure: build.BuildFailure) -> None:
     raise ToolError(f"Configuration change detected: {msg}\nRerun the tool with 'confirm_analysis=True' if this is intended.")
 
 @register_tool("build", BuildArgs, wrapped_func=build.build_targets)
-def run_build(ctx: BuildContext, args: BuildArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+def run_build(ctx: BuildContext, args: BuildArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, Any]:
     """Wrapper for build.build_targets."""
     # Build already triggers analysis unless confirm_analysis is False.
     # If confirm_analysis is False, we tell build to fail on reanalysis instead of running it.
@@ -82,15 +82,15 @@ def run_build(ctx: BuildContext, args: BuildArgs, progress_callback: Optional[Ca
         if not args.confirm_analysis and failures and "Reanalysis will run due to" in failures[0].message:
             raise_reanalysis_error(failures[0])
         else:
-             print(json.dumps(dataclasses.asdict(result), indent=2))
+             # Return result for structured reporting before error
              # Actual build error
-             failure = result.failure_details[0] if result.failure_details else None
+             failure = failures[0] if failures else None
              msg = f"Build Failed: {failure.message}" if failure else "Build Failed"
              if failure and failure.target:
                  msg += f" (Target: {failure.target})"
              raise ToolError(msg)
 
-    print(json.dumps(dataclasses.asdict(result), indent=2))
+    return dataclasses.asdict(result)
 
 def _check_env_consistency(ctx: BuildContext, confirm_analysis: bool) -> None:
      if not confirm_analysis:
@@ -103,7 +103,7 @@ def _check_env_consistency(ctx: BuildContext, confirm_analysis: bool) -> None:
                 raise ToolError("Build failed during environment consistency check.")
 
 @register_tool("ninja_query", NinjaQueryArgs, wrapped_func=ninja.query_ninja_target)
-def run_ninja_query(ctx: BuildContext, args: NinjaQueryArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+def run_ninja_query(ctx: BuildContext, args: NinjaQueryArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, Any]:
     """Wrapper for ninja.query_ninja_target."""
     _check_env_consistency(ctx, args.confirm_analysis)
 
@@ -114,10 +114,10 @@ def run_ninja_query(ctx: BuildContext, args: NinjaQueryArgs, progress_callback: 
         "implicit_deps": result.implicit_deps,
         "outputs": result.outputs
     }
-    print(json.dumps(output, indent=2))
+    return output
 
 @register_tool("check_dependency", CheckDependencyArgs, wrapped_func=ninja.depends_on)
-def run_check_dependency(ctx: BuildContext, args: CheckDependencyArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+def run_check_dependency(ctx: BuildContext, args: CheckDependencyArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, Any]:
     """Wrapper for ninja.depends_on."""
     _check_env_consistency(ctx, args.confirm_analysis)
     is_dep, chain = ninja.depends_on(ctx, args.source, args.target)
@@ -125,10 +125,10 @@ def run_check_dependency(ctx: BuildContext, args: CheckDependencyArgs, progress_
         "is_dependency": is_dep,
         "dependency_chain": chain
     }
-    print(json.dumps(output, indent=2))
+    return output
 
 @register_tool("get_command", GetCommandArgs, wrapped_func=ninja.get_command)
-def run_get_command(ctx: BuildContext, args: GetCommandArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+def run_get_command(ctx: BuildContext, args: GetCommandArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, Any]:
     """Wrapper for ninja.get_command."""
     _check_env_consistency(ctx, args.confirm_analysis)
     commands = ninja.get_command(ctx, args.target, args.last_n)
@@ -136,27 +136,27 @@ def run_get_command(ctx: BuildContext, args: GetCommandArgs, progress_callback: 
         "target": args.target,
         "commands": commands
     }
-    print(json.dumps(output, indent=2))
+    return output
 
 @register_tool("aconfig", AconfigArgs, wrapped_func=config.get_aconfig_flag)
-def run_aconfig(ctx: BuildContext, args: AconfigArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+def run_aconfig(ctx: BuildContext, args: AconfigArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, Any]:
     """Wrapper for config.get_aconfig_flag."""
     _check_env_consistency(ctx, args.confirm_analysis)
     flag_info = config.get_aconfig_flag(ctx, args.package, args.flag)
-    print(json.dumps(flag_info.to_dict(), indent=2))
+    return flag_info.to_dict()
 
 @register_tool("module_info", ModuleInfoArgs, wrapped_func=module.get_module_info)
-def run_module_info(ctx: BuildContext, args: ModuleInfoArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+def run_module_info(ctx: BuildContext, args: ModuleInfoArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, Any]:
     """Wrapper for module.get_module_info."""
     _check_env_consistency(ctx, args.confirm_analysis)
     info = module.get_module_info(ctx, args.module_name, args.force_refresh)
     # Convert ModuleInfo dataclass to dict for JSON serialization
     info_dict = dataclasses.asdict(info)
-    print(json.dumps(info_dict, indent=2))
+    return info_dict
 
 @register_tool("build_vars", BuildVarsArgs, wrapped_func=config.get_build_vars)
-def run_build_vars(ctx: BuildContext, args: BuildVarsArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> None:
+def run_build_vars(ctx: BuildContext, args: BuildVarsArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, Any]:
     """Wrapper for config.get_build_vars."""
     _check_env_consistency(ctx, args.confirm_analysis)
     vars_dict = config.get_build_vars(ctx, *args.vars)
-    print(json.dumps(vars_dict, indent=2))
+    return vars_dict
