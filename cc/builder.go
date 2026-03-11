@@ -44,6 +44,10 @@ const (
 var (
 	pctx = android.NewPackageContext("android/soong/cc")
 
+	lfiBindTool    = pctx.HostTool("lfi-bind")
+	lfiVerifyTool  = pctx.HostTool("lfi-verify")
+	symbolsMapTool = pctx.HostTool("symbols_map")
+
 	// Rule to invoke gcc with given command, flags, and dependencies. Outputs a .d depfile.
 	cc = pctx.AndroidRemoteStaticRule("cc", android.RemoteRuleSupports{RBE: true},
 		blueprint.RuleParams{
@@ -134,20 +138,19 @@ var (
 	// Rule to run objcopy --prefix-symbols (to prefix all symbols in a file with a given string).
 	prefixSymbols = pctx.AndroidStaticRule("prefixSymbols",
 		blueprint.RuleParams{
-			Command:         "$objcopyCmd --prefix-symbols=${prefix} ${in} ${out}",
-			CommandDeps:     []string{"$objcopyCmd"},
-			SandboxDisabled: true,
+			Command:     "${config.ClangBin}/llvm-objcopy --prefix-symbols=${prefix} ${in} ${out}",
+			CommandDeps: []string{"${config.ClangBin}/llvm-objcopy"},
 		},
-		"objcopyCmd", "prefix")
+		"prefix")
 
 	// Rule to run objcopy --remove-section=.llvm_addrsig on a partially linked object
 	noAddrSig = pctx.AndroidStaticRule("noAddrSig",
 		blueprint.RuleParams{
-			Command:         "rm -f ${out} && $objcopyCmd --remove-section=.llvm_addrsig ${in} ${out}",
-			CommandDeps:     []string{"$objcopyCmd"},
-			SandboxDisabled: true,
-		},
-		"objcopyCmd")
+			Command2: blueprint.NewCommand(
+				android.Rm, " -f ${out} && ${config.ClangBin}/llvm-objcopy --remove-section=.llvm_addrsig ${in} ${out}",
+			),
+			CommandDeps: []string{"${config.ClangBin}/llvm-objcopy"},
+		})
 
 	_ = pctx.SourcePathVariable("stripPath", "build/soong/scripts/strip.sh")
 	_ = pctx.SourcePathVariable("xzCmd", "prebuilts/build-tools/${config.HostPrebuiltTag}/bin/xz")
@@ -369,36 +372,31 @@ var (
 
 	// Rule to generate the elf mapping textproto file from the symbols file.
 	elfSymbolsToProto = pctx.AndroidStaticRule("elf_symbols_to_proto", blueprint.RuleParams{
-		Command:         `${symbols_map} -elf $in -write_if_changed $out`,
-		Restat:          true,
-		CommandDeps:     []string{"${symbols_map}"},
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			symbolsMapTool, ` -elf $in -write_if_changed $out`,
+		),
+		Restat: true,
 	})
 
 	lfiBind = pctx.AndroidStaticRule("lfi_bind", blueprint.RuleParams{
-		Command: `${lfi_bind} -embed -gen-trampolines ${genDir}/trampolines.S -gen-init ${genDir}/init.c -lib ${name}_box -symbols-all $in && ` +
+		Command2: blueprint.NewCommand(
+			lfiBindTool, ` -embed -gen-trampolines ${genDir}/trampolines.S -gen-init ${genDir}/init.c -lib ${name}_box -symbols-all $in && `,
 			// lfi-bind always generates the header next to the source file, move it to another
 			// folder so you can't #include init.c
-			`mv ${genDir}/${name}_box.h ${includeDir}`,
-		CommandDeps: []string{
-			`${lfi_bind}`,
-		},
-		SandboxDisabled: true,
+			android.Mv, ` ${genDir}/${name}_box.h ${includeDir}`,
+		),
 	}, "name", "genDir", "includeDir")
 
 	lfiVerify = pctx.AndroidStaticRule("lfi_verify", blueprint.RuleParams{
-		Command: `${lfi_verify} $in && touch $out`,
-		CommandDeps: []string{
-			`${lfi_verify}`,
-		},
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			lfiVerifyTool, ` $in && `, android.Touch, ` $out`,
+		),
 	})
 
 	lfiBindRlbox = pctx.AndroidStaticRule("lfi_bind_rlbox", blueprint.RuleParams{
-		Command: `${lfi_bind} -gen-inc ${genDir}/inc.S -lib ${name}_box $in`,
-		CommandDeps: []string{
-			`${lfi_bind}`,
-		},
+		Command2: blueprint.NewCommand(
+			lfiBindTool, `-gen-inc ${genDir}/inc.S -lib ${name}_box $in`,
+		),
 	}, "name", "genDir")
 
 	// Function pointer for producting staticlibs from rlibs. Corresponds to
@@ -427,12 +425,7 @@ func init() {
 
 	pctx.HostBinToolVariable("SoongZipCmd", "soong_zip")
 
-	pctx.HostBinToolVariable("symbols_map", "symbols_map")
-
 	pctx.HostBinToolVariable("checkElfFileCmd", "check_elf_file")
-
-	pctx.HostBinToolVariable("lfi_verify", "lfi-verify")
-	pctx.HostBinToolVariable("lfi_bind", "lfi-bind")
 }
 
 // builderFlags contains various types of command line flags (and settings) for use in building
@@ -1219,33 +1212,24 @@ func transformObjsToObj(ctx android.ModuleContext, objFiles android.Paths,
 // Generate a rule for running objcopy --prefix-symbols on a binary
 func transformBinaryPrefixSymbols(ctx android.ModuleContext, prefix string, inputFile android.Path,
 	flags builderFlags, outputFile android.WritablePath) {
-
-	objcopyCmd := "${config.ClangBin}/llvm-objcopy"
-
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        prefixSymbols,
 		Description: "prefix symbols " + outputFile.Base(),
 		Output:      outputFile,
 		Input:       inputFile,
 		Args: map[string]string{
-			"objcopyCmd": objcopyCmd,
-			"prefix":     prefix,
+			"prefix": prefix,
 		},
 	})
 }
 
 // Generate a rule for running objcopy --remove-section=.llvm_addrsig on a partially linked object
 func transformObjectNoAddrSig(ctx android.ModuleContext, inputFile android.Path, outputFile android.WritablePath) {
-	objcopyCmd := "${config.ClangBin}/llvm-objcopy"
-
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        noAddrSig,
 		Description: "remove addrsig " + outputFile.Base(),
 		Output:      outputFile,
 		Input:       inputFile,
-		Args: map[string]string{
-			"objcopyCmd": objcopyCmd,
-		},
 	})
 }
 
