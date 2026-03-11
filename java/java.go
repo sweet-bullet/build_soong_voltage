@@ -697,8 +697,21 @@ func IsLibDepTag(depTag blueprint.DependencyTag) bool {
 	return depTag == libTag
 }
 
+// IsStaticLibDepTag returns true if the depTag is a dependencyTag with static set to true.
 func IsStaticLibDepTag(depTag blueprint.DependencyTag) bool {
-	return depTag == staticLibTag
+	if tag, ok := depTag.(dependencyTag); ok {
+		return tag.static
+	}
+	return false
+}
+
+// IsRuntimeDepTag returns true if the depTag is a dependencyTag with runtimeLinked set to true.
+// This captures all library-style dependencies that are linked at runtime (e.g., javalib, sdklib, jnilib).
+func IsRuntimeDepTag(depTag blueprint.DependencyTag) bool {
+	if tag, ok := depTag.(dependencyTag); ok {
+		return tag.runtimeLinked
+	}
+	return false
 }
 
 func IsTraceReferencesDepTag(depTag blueprint.DependencyTag) bool {

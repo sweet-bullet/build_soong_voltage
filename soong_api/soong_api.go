@@ -26,7 +26,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -137,17 +136,18 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 			ctx.VisitDirectDepsProxies(m, func(dep android.ModuleProxy) {
 				tag := ctx.OtherModuleDependencyTag(dep)
 				depName := ctx.ModuleName(dep)
-				tagStr := fmt.Sprintf("%v", tag)
 
 				// Get direct dep's Provider
 				if depJavaInfo, ok := android.OtherModuleProvider(ctx, dep, java.JavaInfoProvider); ok {
 					// Collect only the direct dep's own output files (non-transitive)
 					depFiles := depJavaInfo.ImplementationJars.Strings()
 
-					if strings.Contains(tagStr, "static") {
+					// Use refined property-based helpers to categorize dependencies.
+					if java.IsStaticLibDepTag(tag) {
 						record.StaticLibs = append(record.StaticLibs, depName)
 						record.StaticLibFiles = append(record.StaticLibFiles, depFiles...)
-					} else if strings.Contains(tagStr, "lib") {
+					} else if java.IsRuntimeDepTag(tag) {
+						// This will now correctly catch libTag, sdkLibTag, jniLibTag, etc.
 						record.Libs = append(record.Libs, depName)
 						record.LibFiles = append(record.LibFiles, depFiles...)
 					}
