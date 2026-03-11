@@ -8,6 +8,14 @@ load("./rust.star", "rust")
 __my_imports = [clang, java, rust]
 
 def __filegroups(ctx, vars, filegroups):
+    # We only need to resolve expensive filegroup globs if we are running in a
+    # hermetic environment (local sandbox or native remote execution).
+    # Standard local builds don't need these definitions.
+    is_sandboxed = "action_sandbox" in ctx.flags.get("config", "").split(",")
+    is_native_rbe = vars.use_rbe and not vars.use_reclient
+    if not (is_sandboxed or is_native_rbe):
+        return filegroups
+
     for i in __my_imports:
         filegroups.update(i.filegroups(ctx, vars))
     return filegroups
@@ -61,10 +69,8 @@ def __generate(ctx, vars, dir_modules):
         handlers = m.handlers(ctx, vars, handlers)
 
     # for action sandboxed build
-    action_sandbox = False
-    if "config" in ctx.flags:
-        action_sandbox = "action_sandbox" in ctx.flags["config"].split(",")
-    if action_sandbox and vars.nsjail_path:
+    is_sandboxed = "action_sandbox" in ctx.flags.get("config", "").split(",")
+    if is_sandboxed and vars.nsjail_path:
         step_config["sandbox"] = {
             "backend": "nsjail",
             "nsjail_path": vars.nsjail_path,
