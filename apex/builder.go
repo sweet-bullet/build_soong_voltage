@@ -525,14 +525,21 @@ func (a *apexBundle) buildFileContexts(ctx android.ModuleContext) android.Path {
 // buildInstalledFilesFile creates a build rule for the installed-files.txt file where the list of
 // files included in this APEX is shown. The text file is dist'ed so that people can see what's
 // included in the APEX without actually downloading and extracting it.
-func (a *apexBundle) buildInstalledFilesFile(ctx android.ModuleContext, builtApex android.Path, imageDir android.Path) android.Path {
+func (a *apexBundle) buildInstalledFilesFile(ctx android.ModuleContext, builtApex android.Path, imageZip android.Path) android.Path {
 	output := android.PathForModuleOut(ctx, "installed-files.txt")
-	rule := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
+	unzippedDir := android.PathForModuleOut(ctx, "installed-files-unzipped")
+	rule := android.NewRuleBuilder(pctx, ctx)
 	rule.Command().
 		Implicit(builtApex).
-		Text("(cd " + imageDir.String() + " ; ").
-		Text("find . \\( -type f -o -type l \\) -printf \"%s %p\\n\") ").
-		Text(" | sort -nr > ").
+		BuiltTool("zipsync").
+		FlagWithArg("-d ", unzippedDir.String()).
+		Input(imageZip)
+	rule.Command().
+		BuiltTool("find").
+		Text(unzippedDir.String()).
+		Text("\\( -type f -o -type l \\) -printf \"%s ./%P\\n\" |").
+		BuiltTool("sort").
+		Text("-nr > ").
 		Output(output)
 	rule.Build("installed-files."+a.Name(), "Installed files")
 	return output
@@ -1147,7 +1154,7 @@ func (a *apexBundle) buildApex(ctx android.ModuleContext) {
 	a.installedFile = ctx.InstallFile(a.installDir, a.Name()+installSuffix, a.outputFile, installDeps...)
 
 	// installed-files.txt is dist'ed
-	a.installedFilesFile = a.buildInstalledFilesFile(ctx, a.outputFile, imageDir)
+	a.installedFilesFile = a.buildInstalledFilesFile(ctx, a.outputFile, imageZipOut)
 
 	a.apexKeysPath = writeApexKeys(ctx, a)
 }
