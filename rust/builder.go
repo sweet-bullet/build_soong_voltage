@@ -35,7 +35,7 @@ var (
 
 	rustc, rustcRbe = pctx.RemoteStaticRules("rustc",
 		blueprint.RuleParams{
-			Command: "$relPwd $reTemplate/usr/bin/env $envVars ${RustcWrapper} ${rustcCmd} " +
+			Command: "$relPwd $reTemplate/usr/bin/env -i TMPDIR=\"$$TMPDIR\" $envVars ${RustcWrapper} ${rustcCmd} " +
 				"-C linker=${RustcLinkerCmd} -C link-args=\"--android-clang-bin=${config.ClangCmd} ${linkerScriptFlags}\" " +
 				"-C link-args=@${out}.clang.rsp " +
 				"--emit ${emitType} -o $out --emit dep-info=$out.d.raw $in ${libFlags} $rustcFlags" +
@@ -366,6 +366,17 @@ func rustEnvVars(ctx android.ModuleContext, deps PathDeps, crateName string, car
 	if ctx.Darwin() {
 		envVars["ANDROID_RUST_DARWIN"] = "true"
 	}
+
+	// TODO: Remove, there are existing users.
+	envVars["TARGET_BUILD_VARIANT"] = func() string {
+		if ctx.Config().Eng() {
+			return "eng"
+		} else if ctx.Config().Debuggable() {
+			return "userdebug"
+		} else {
+			return "user"
+		}
+	}()
 
 	return envVars
 }
