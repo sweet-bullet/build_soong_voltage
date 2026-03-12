@@ -36,6 +36,9 @@ cc_binary {
         "lfi_libadd",
         "liblfi",
     ],
+    shared_libs: [
+        "liblog",
+    ],
     strip: {
         none: true,
     },

@@ -380,7 +380,7 @@ var (
 
 	lfiBind = pctx.AndroidStaticRule("lfi_bind", blueprint.RuleParams{
 		Command2: blueprint.NewCommand(
-			lfiBindTool, ` -embed -gen-trampolines ${genDir}/trampolines.S -gen-init ${genDir}/init.c -lib ${name}_box -symbols-all $in && `,
+			lfiBindTool, ` -verbose -no-constructor -no-sigaltstack -embed -gen-trampolines ${genDir}/trampolines.S -gen-init ${genDir}/init.c -lib ${name}_box -symbols-all $in && `,
 			// lfi-bind always generates the header next to the source file, move it to another
 			// folder so you can't #include init.c
 			android.Mv, ` ${genDir}/${name}_box.h ${includeDir}`,
