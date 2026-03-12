@@ -232,6 +232,7 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 		}
 
 		// --- Final data deduplication and cleanup ---
+		record.TransitiveSrcFiles = android.FirstUniqueStrings(record.TransitiveSrcFiles)
 		record.BuiltFiles = android.FirstUniqueStrings(record.BuiltFiles)
 		record.StaticLibs = android.FirstUniqueStrings(record.StaticLibs)
 		record.StaticLibFiles = android.FirstUniqueStrings(record.StaticLibFiles)
