@@ -29,7 +29,7 @@ import (
 // source, or both.
 
 func RegisterPrebuiltMutators(ctx RegistrationContext) {
-	ctx.PreArchMutators(RegisterPrebuiltsPreArchMutators)
+	ctx.PrePartialMutators(RegisterPrebuiltsPreArchMutators)
 	ctx.PreDepsMutators(RegisterPrebuiltsPreDepsMutators)
 	ctx.PostDepsMutators(RegisterPrebuiltsPostDepsMutators)
 }

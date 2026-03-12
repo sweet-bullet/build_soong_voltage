@@ -31,11 +31,11 @@ import (
 // collateGloballyRegisteredMutators constructs the list of mutators that have been registered
 // with the InitRegistrationContext and will be used at runtime.
 func collateGloballyRegisteredMutators() sortableComponents {
-	return collateRegisteredMutators(preArch, preDeps, postDeps, postApex, finalDeps)
+	return collateRegisteredMutators(prePartial, preArch, preDeps, postDeps, postApex, finalDeps)
 }
 
 // collateRegisteredMutators constructs a single list of mutators from the separate lists.
-func collateRegisteredMutators(preArch, preDeps, postDeps, postApex, finalDeps []RegisterMutatorFunc) sortableComponents {
+func collateRegisteredMutators(prePartial, preArch, preDeps, postDeps, postApex, finalDeps []RegisterMutatorFunc) sortableComponents {
 	mctx := &registerMutatorsContext{}
 
 	register := func(funcs []RegisterMutatorFunc) {
@@ -43,6 +43,10 @@ func collateRegisteredMutators(preArch, preDeps, postDeps, postApex, finalDeps [
 			f(mctx)
 		}
 	}
+
+	register(prePartial)
+
+	register([]RegisterMutatorFunc{registerPartialMutator})
 
 	register(preArch)
 
@@ -74,7 +78,8 @@ type RegisterMutatorsContext interface {
 
 type RegisterMutatorFunc func(RegisterMutatorsContext)
 
-var preArch = []RegisterMutatorFunc{
+// Mutators that run before partial analysis logic kicks in.
+var prePartial = []RegisterMutatorFunc{
 	RegisterNamespaceMutator,
 
 	// Check the visibility rules are valid.
@@ -134,7 +139,9 @@ var preArch = []RegisterMutatorFunc{
 	// a DefaultableHook can be either a prebuilt or a source module with a matching
 	// prebuilt.
 	RegisterPrebuiltsPreArchMutators,
+}
 
+var preArch = []RegisterMutatorFunc{
 	// Gather the licenses properties for all modules for use during expansion and enforcement.
 	//
 	// This must come after the defaults mutators to ensure that any licenses supplied
@@ -191,6 +198,10 @@ var postDeps = []RegisterMutatorFunc{
 var postApex = []RegisterMutatorFunc{}
 
 var finalDeps = []RegisterMutatorFunc{}
+
+func PrePartialMutators(f RegisterMutatorFunc) {
+	prePartial = append(prePartial, f)
+}
 
 func PreArchMutators(f RegisterMutatorFunc) {
 	preArch = append(preArch, f)
@@ -411,6 +422,9 @@ func (mutator *mutator) register(ctx *Context) {
 	if mutator.mutatesGlobalState {
 		handle.MutatesGlobalState()
 	}
+	if mutator.prePartial {
+		handle.PrePartial()
+	}
 }
 
 type MutatorHandle interface {
@@ -443,6 +457,9 @@ type MutatorHandle interface {
 	// MutatesGlobalState marks the mutator as modifying global state, which prevents coalescing
 	// adjacent mutators into a single mutator pass.
 	MutatesGlobalState() MutatorHandle
+
+	// PrePartial marks the mutator to be the pre-partial marker mutator.
+	PrePartial() MutatorHandle
 }
 
 type TransitionMutatorHandle interface {
@@ -492,6 +509,11 @@ func (mutator *mutator) NeverFar() MutatorHandle {
 	return mutator
 }
 
+func (mutator *mutator) PrePartial() MutatorHandle {
+	mutator.prePartial = true
+	return mutator
+}
+
 func RegisterComponentsMutator(ctx RegisterMutatorsContext) {
 	ctx.BottomUp("component-deps", componentDepsMutator)
 }
@@ -501,6 +523,14 @@ func RegisterComponentsMutator(ctx RegisterMutatorsContext) {
 // module.
 func componentDepsMutator(ctx BottomUpMutatorContext) {
 	ctx.Module().ComponentDepsMutator(ctx)
+}
+
+func partialMutator(_ BottomUpMutatorContext) {
+	// Just a marker mutator.
+}
+
+func registerPartialMutator(ctx RegisterMutatorsContext) {
+	ctx.BottomUp("partial", partialMutator).PrePartial()
 }
 
 func depsMutator(ctx BottomUpMutatorContext) {

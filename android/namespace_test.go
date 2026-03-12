@@ -673,7 +673,7 @@ func TestNamespace_Exports(t *testing.T) {
 var prepareForTestWithNamespace = GroupFixturePreparers(
 	FixtureRegisterWithContext(registerNamespaceBuildComponents),
 	FixtureRegisterWithContext(func(ctx RegistrationContext) {
-		ctx.PreArchMutators(RegisterNamespaceMutator)
+		ctx.PrePartialMutators(RegisterNamespaceMutator)
 	}),
 	FixtureModifyContext(func(ctx *TestContext) {
 		ctx.RegisterModuleType("test_module", newTestModule)

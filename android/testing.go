@@ -71,11 +71,11 @@ var PrepareForTestWithArchMutator = GroupFixturePreparers(
 )
 
 var PrepareForTestWithDefaults = FixtureRegisterWithContext(func(ctx RegistrationContext) {
-	ctx.PreArchMutators(RegisterDefaultsPreArchMutators)
+	ctx.PrePartialMutators(RegisterDefaultsPreArchMutators)
 })
 
 var PrepareForTestWithComponentsMutator = FixtureRegisterWithContext(func(ctx RegistrationContext) {
-	ctx.PreArchMutators(RegisterComponentsMutator)
+	ctx.PrePartialMutators(RegisterComponentsMutator)
 })
 
 var PrepareForTestWithPrebuilts = FixtureRegisterWithContext(RegisterPrebuiltMutators)
@@ -124,7 +124,7 @@ var PrepareForTestWithLicenseDefaultModules = GroupFixturePreparers(
 
 var PrepareForTestWithNamespace = FixtureRegisterWithContext(func(ctx RegistrationContext) {
 	registerNamespaceBuildComponents(ctx)
-	ctx.PreArchMutators(RegisterNamespaceMutator)
+	ctx.PrePartialMutators(RegisterNamespaceMutator)
 })
 
 var PrepareForTestWithMakevars = FixtureRegisterWithContext(func(ctx RegistrationContext) {
@@ -224,8 +224,8 @@ func NewTestArchContext(config Config) *TestContext {
 
 type TestContext struct {
 	*Context
-	preArch, preDeps, postDeps, postApex, finalDeps []RegisterMutatorFunc
-	NameResolver                                    *NameResolver
+	prePartial, preArch, preDeps, postDeps, postApex, finalDeps []RegisterMutatorFunc
+	NameResolver                                                *NameResolver
 
 	// The list of singletons registered for the test.
 	singletons sortableComponents
@@ -233,6 +233,10 @@ type TestContext struct {
 	// The order in which the mutators and singletons will be run in this test
 	// context; for debugging.
 	mutatorOrder, singletonOrder []string
+}
+
+func (ctx *TestContext) PrePartialMutators(f RegisterMutatorFunc) {
+	ctx.prePartial = append(ctx.prePartial, f)
 }
 
 func (ctx *TestContext) PreArchMutators(f RegisterMutatorFunc) {
@@ -537,7 +541,7 @@ func globallyRegisteredComponentsOrder() *registrationSorter {
 func (ctx *TestContext) Register() {
 	globalOrder := globallyRegisteredComponentsOrder()
 
-	mutators := collateRegisteredMutators(ctx.preArch, ctx.preDeps, ctx.postDeps, ctx.postApex, ctx.finalDeps)
+	mutators := collateRegisteredMutators(ctx.prePartial, ctx.preArch, ctx.preDeps, ctx.postDeps, ctx.postApex, ctx.finalDeps)
 	// Ensure that the mutators used in the test are in the same order as they are used at runtime.
 	globalOrder.mutatorOrder.enforceOrdering(mutators)
 	mutators.registerAll(ctx.Context)

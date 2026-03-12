@@ -98,6 +98,7 @@ type mutator struct {
 	mutatesDependencies     bool
 	mutatesGlobalState      bool
 	neverFar                bool
+	prePartial              bool
 }
 
 var _ sortableComponent = &mutator{}
@@ -233,6 +234,7 @@ type RegistrationContext interface {
 	RegisterModuleType(name string, factory ModuleFactory)
 	RegisterParallelSingletonType(name string, factory SingletonFactory)
 	RegisterSingletonType(name string, factory SingletonFactory)
+	PrePartialMutators(f RegisterMutatorFunc)
 	PreArchMutators(f RegisterMutatorFunc)
 
 	// Register pre arch mutators that are hard coded into mutator.go.
@@ -299,6 +301,10 @@ func (ctx *initRegistrationContext) RegisterSingletonType(name string, factory S
 
 func (ctx *initRegistrationContext) RegisterParallelSingletonType(name string, factory SingletonFactory) {
 	ctx.registerSingletonType(name, factory, true)
+}
+
+func (ctx *initRegistrationContext) PrePartialMutators(f RegisterMutatorFunc) {
+	PrePartialMutators(f)
 }
 
 func (ctx *initRegistrationContext) PreArchMutators(f RegisterMutatorFunc) {

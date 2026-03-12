@@ -748,7 +748,7 @@ func CreateTestContext(config android.Config) *android.TestContext {
 
 	RegisterLlndkLibraryTxtType(ctx)
 
-	ctx.PreArchMutators(android.RegisterDefaultsPreArchMutators)
+	ctx.PrePartialMutators(android.RegisterDefaultsPreArchMutators)
 	android.RegisterPrebuiltMutators(ctx)
 	RegisterRequiredBuildComponentsForTest(ctx)
 
