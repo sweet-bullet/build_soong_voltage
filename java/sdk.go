@@ -115,11 +115,11 @@ func decodeSdkDep(ctx android.EarlyModuleContext, sdkContext SdkVersionContext) 
 	}
 
 	if sdkVersion.UsePrebuilt(ctx) {
-		dir := filepath.Join("prebuilts", "sdk", sdkVersion.ApiLevel.String(), sdkVersion.Kind.String())
+		dir := filepath.Join("prebuilts", "sdk", sdkVersion.ApiLevel.GetSdkVersion(), sdkVersion.Kind.String())
 		jar := filepath.Join(dir, "android.jar")
 		// There's no aidl for other SDKs yet.
 		// TODO(77525052): Add aidl files for other SDKs too.
-		publicDir := filepath.Join("prebuilts", "sdk", sdkVersion.ApiLevel.String(), "public")
+		publicDir := filepath.Join("prebuilts", "sdk", sdkVersion.ApiLevel.GetSdkVersion(), "public")
 		aidl := filepath.Join(publicDir, "framework.aidl")
 		jarPath := android.ExistentPathForSource(ctx, jar)
 		aidlPath := android.ExistentPathForSource(ctx, aidl)
@@ -128,7 +128,7 @@ func decodeSdkDep(ctx android.EarlyModuleContext, sdkContext SdkVersionContext) 
 		if (!jarPath.Valid() || !aidlPath.Valid()) && ctx.Config().AllowMissingDependencies() {
 			return sdkDep{
 				invalidVersion: true,
-				bootclasspath:  []string{fmt.Sprintf("sdk_%s_%s_android", sdkVersion.Kind, sdkVersion.ApiLevel.String())},
+				bootclasspath:  []string{fmt.Sprintf("sdk_%s_%s_android", sdkVersion.Kind, sdkVersion.ApiLevel.GetSdkVersion())},
 			}
 		}
 
@@ -145,7 +145,7 @@ func decodeSdkDep(ctx android.EarlyModuleContext, sdkContext SdkVersionContext) 
 		var systemModules string
 		if defaultJavaLanguageVersion(ctx, sdkVersion).usesJavaModules() {
 			systemModuleKind := systemModuleKind(sdkVersion.Kind, sdkVersion.ApiLevel)
-			systemModules = fmt.Sprintf("sdk_%s_%s_system_modules", systemModuleKind, sdkVersion.ApiLevel)
+			systemModules = fmt.Sprintf("sdk_%s_%s_system_modules", systemModuleKind, sdkVersion.ApiLevel.GetSdkVersion())
 		}
 
 		return sdkDep{
