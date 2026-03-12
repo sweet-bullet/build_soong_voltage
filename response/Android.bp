@@ -14,7 +14,6 @@ bootstrap_go_package {
         "response_test.go",
     ],
     visibility: [
-        "//build/make/tools/compliance",
-        "//build/soong:__subpackages__",
+        "//visibility:public",
     ],
 }
