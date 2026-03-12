@@ -29,6 +29,9 @@ func init() {
 
 const previewAPILevelBase = 9000
 
+// The first API level that has a mandatory minor version in the prebuilt path.
+const FinalizedWithMinorVersion = 37
+
 // An API level, which may be a finalized (numbered) API, a preview (codenamed)
 // API, or the future API level (10000). Can be parsed from a string with
 // ApiLevelFromUser or ApiLevelOrPanic.
@@ -101,6 +104,21 @@ func (this ApiLevel) FinalOrPreviewInt() int {
 // this will be the API number as a string. For a preview API level this
 // will be the codename, or "current".
 func (this ApiLevel) String() string {
+	return this.value
+}
+
+// Returns the canonical name for this API level. For a finalized API level
+// this will be the API number as a string, if the major sdk number is 37 or
+// more it will include always include the minor version number, For versions
+// before 37 it omits the minor version if it is 0. For a preview API level this
+// will be the codename, or "current".
+func (this ApiLevel) GetSdkVersion() string {
+	if this.IsPreview() || this.IsInvalid() || this.major == FutureApiLevelInt {
+		return this.value
+	}
+	if this.major >= FinalizedWithMinorVersion || this.minor != 0 {
+		return fmt.Sprintf("%d.%d", this.major, this.minor)
+	}
 	return this.value
 }
 
@@ -240,22 +258,43 @@ func (this ApiLevel) LessThanOrEqualTo(other ApiLevel) bool {
 	return this.CompareTo(other) <= 0
 }
 
-func UncheckedFinalApiLevel(num int) ApiLevel {
+func finalApiLevel(config *Config, major int, minor int) ApiLevel {
+	// Due to legacy reasons value needs to be parsable as an int.
+	value := strconv.Itoa(major)
 	return ApiLevel{
-		value:     strconv.Itoa(num),
-		major:     num,
-		minor:     0,
+		value:     value,
+		major:     major,
+		minor:     minor,
 		isPreview: false,
 	}
 }
 
-func uncheckedFinalIncrementalApiLevel(num int, increment int) ApiLevel {
-	return ApiLevel{
-		value:     strconv.Itoa(num) + "." + strconv.Itoa(increment),
-		major:     num,
-		minor:     increment,
-		isPreview: false,
+func parseMajorMinor(raw string) (major int, minor int, err error) {
+	if strings.Contains(raw, ".") {
+		parts := strings.Split(raw, ".")
+		if len(parts) != 2 {
+			return 0, 0, fmt.Errorf("Found unexpected version '%s' for incremental API - expect MM.m format", raw)
+		}
+		major, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return 0, 0, fmt.Errorf("Unable to read major version number for incremental api '%s'", raw)
+		}
+		minor, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return 0, 0, fmt.Errorf("Unable to read minor version number for incremental api '%s'", raw)
+		}
+		return major, minor, nil
 	}
+	major, err = strconv.Atoi(raw)
+	return major, 0, err
+}
+
+func UncheckedFinalApiLevel(num int) ApiLevel {
+	return finalApiLevel(nil, num, 0)
+}
+
+func uncheckedFinalIncrementalApiLevel(num int, increment int) ApiLevel {
+	return finalApiLevel(nil, num, increment)
 }
 
 var NoneApiLevel = ApiLevel{
@@ -376,29 +415,18 @@ func ApiLevelFromUserWithConfig(config Config, raw string) (ApiLevel, error) {
 	if err != nil {
 		return NoneApiLevel, err
 	}
-	canonical, ok := apiLevelsReleasedVersions[raw]
-	if !ok {
-		if strings.Contains(raw, ".") {
-			// assume a major.minor version code
-			parts := strings.Split(raw, ".")
-			if len(parts) == 2 {
-				sdk, sdk_err := strconv.Atoi(parts[0])
-				qpr, qpr_err := strconv.Atoi(parts[1])
-				if sdk_err == nil && qpr_err == nil {
-					return uncheckedFinalIncrementalApiLevel(sdk, qpr), nil
-				}
-			}
-		}
 
-		asInt, err := strconv.Atoi(raw)
-		if err != nil {
-			return NoneApiLevel, fmt.Errorf("%q could not be parsed as an integer and is not a recognized codename", raw)
-		}
-		return UncheckedFinalApiLevel(asInt), nil
+	major, minor, err := parseMajorMinor(raw)
+	if err == nil {
+		return finalApiLevel(&config, major, minor), nil
 	}
 
-	return UncheckedFinalApiLevel(canonical), nil
+	canonical, ok := apiLevelsReleasedVersions[raw]
+	if !ok {
+		return NoneApiLevel, fmt.Errorf("%q could not be parsed as an integer and is not a recognized codename", raw)
+	}
 
+	return finalApiLevel(&config, canonical, 0), nil
 }
 
 // ApiLevelForTest returns an ApiLevel constructed from the supplied raw string.
@@ -413,29 +441,12 @@ func ApiLevelForTest(raw string) ApiLevel {
 		return FutureApiLevel
 	}
 
-	if strings.Contains(raw, ".") {
-		// Check prebuilt incremental API format MM.m for major (API level) and minor (incremental) revisions
-		parts := strings.Split(raw, ".")
-		if len(parts) != 2 {
-			panic(fmt.Errorf("Found unexpected version '%s' for incremental API - expect MM.m format for incremental API with both major (MM) an minor (m) revision.", raw))
-		}
-		sdk, sdk_err := strconv.Atoi(parts[0])
-		qpr, qpr_err := strconv.Atoi(parts[1])
-		if sdk_err != nil || qpr_err != nil {
-			panic(fmt.Errorf("Unable to read version number for incremental api '%s'", raw))
-		}
-
-		apiLevel := uncheckedFinalIncrementalApiLevel(sdk, qpr)
-		return apiLevel
-	}
-
-	asInt, err := strconv.Atoi(raw)
+	major, minor, err := parseMajorMinor(raw)
 	if err != nil {
-		panic(fmt.Errorf("%q could not be parsed as an integer and is not a recognized codename", raw))
+		panic(err.Error())
 	}
 
-	apiLevel := UncheckedFinalApiLevel(asInt)
-	return apiLevel
+	return finalApiLevel(nil, major, minor)
 }
 
 // Converts an API level string `raw` into an ApiLevel in the same method as

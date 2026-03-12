@@ -92,35 +92,21 @@ func parsePrebuiltPath(ctx android.LoadHookContext, p string) (module string, ve
 }
 
 // parseFinalizedPrebuiltPath is like parsePrebuiltPath, but verifies the version is numeric (a finalized version).
-func parseFinalizedPrebuiltPath(ctx android.LoadHookContext, p string) (module string, version int, release int, scope string) {
+func parseFinalizedPrebuiltPath(ctx android.LoadHookContext, p string) (module string, apiLevel android.ApiLevel, scope string) {
 	module, v, scope := parsePrebuiltPath(ctx, p)
 
 	// Hack for 37-prefinalized (b/489350505). This provides a stable reference for
 	// bp4a and mainline-beta builds that cannot use the finalized 37.0 SDK.
 	// TODO(b/491744570): Remove this hack
 	if v == "37-prefinalized" {
-		return module, 37, 0, scope
-	}
-
-	// assume a major.minor version code
-	parts := strings.Split(v, ".")
-	if len(parts) == 2 {
-		sdk, sdk_err := strconv.Atoi(parts[0])
-		qpr, qpr_err := strconv.Atoi(parts[1])
-		if sdk_err != nil || qpr_err != nil {
-			ctx.ModuleErrorf("Unable to read major.minor version for prebuilt api '%v'", v)
-			return
-		}
-		version = sdk
-		release = qpr
+		apiLevel, _ = android.ApiLevelFromUserWithConfig(ctx.Config(), "37")
 		return
 	}
 
-	// assume a legacy integer only api level
-	release = 0
-	version, err := strconv.Atoi(v)
+	var err error
+	apiLevel, err = android.ApiLevelFromUserWithConfig(ctx.Config(), v)
 	if err != nil {
-		ctx.ModuleErrorf("Unable to read API level for prebuilt api '%v'", v)
+		ctx.ModuleErrorf("Unable to read version for prebuilt api '%v': %v", v, err)
 		return
 	}
 	return
@@ -251,7 +237,8 @@ func prebuiltSdkStubs(mctx android.LoadHookContext, p *prebuiltApis) {
 
 	for _, f := range files {
 		// create a Import module for each jar file
-		module, version, scope := parsePrebuiltPath(mctx, f)
+		module, apiLevel, scope := parseFinalizedPrebuiltPath(mctx, f)
+		version := apiLevel.GetSdkVersion()
 		createImport(mctx, module, scope, version, f, sdkVersion, compileDex)
 
 		if module == "core-for-system-modules" {
@@ -288,33 +275,28 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 
 	// Create modules for all (<module>, <scope, <version>) triplets,
 	for _, f := range apiLevelFiles {
-		module, version, release, scope := parseFinalizedPrebuiltPath(mctx, f)
-		if release != 0 {
-			majorDotMinorVersion := strconv.Itoa(version) + "." + strconv.Itoa(release)
-			createApiModule(mctx, PrebuiltApiModuleName(module, scope, majorDotMinorVersion), f)
-		} else {
-			createApiModule(mctx, PrebuiltApiModuleName(module, scope, strconv.Itoa(version)), f)
-		}
+		module, apiLevel, scope := parseFinalizedPrebuiltPath(mctx, f)
+		createApiModule(mctx, PrebuiltApiModuleName(module, scope, apiLevel.GetSdkVersion()), f)
 	}
 
 	// Figure out the latest version of each module/scope
 	type latestApiInfo struct {
 		module, scope, path string
-		version, release    int
+		apiLevel            android.ApiLevel
 		isExtensionApiFile  bool
 	}
 
 	getLatest := func(files []string, isExtensionApiFile bool) map[string]latestApiInfo {
 		m := make(map[string]latestApiInfo)
 		for _, f := range files {
-			module, version, release, scope := parseFinalizedPrebuiltPath(mctx, f)
+			module, apiLevel, scope := parseFinalizedPrebuiltPath(mctx, f)
 			if strings.HasSuffix(module, "incompatibilities") {
 				continue
 			}
 			key := module + "." + scope
 			info, exists := m[key]
-			if !exists || version > info.version || (version == info.version && release > info.release) {
-				m[key] = latestApiInfo{module, scope, f, version, release, isExtensionApiFile}
+			if !exists || apiLevel.GreaterThan(info.apiLevel) {
+				m[key] = latestApiInfo{module, scope, f, apiLevel, isExtensionApiFile}
 			}
 		}
 		return m
@@ -326,7 +308,7 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 		extensionApiFiles := globExtensionDirs(mctx, p, "api/*.txt")
 		for k, v := range getLatest(extensionApiFiles, true) {
 			if _, exists := latest[k]; !exists {
-				mctx.ModuleErrorf("Module %v finalized for extension %d but never during an API level; likely error", v.module, v.version)
+				mctx.ModuleErrorf("Module %v finalized for extension %s but never during an API level; likely error", v.module, v.apiLevel.GetSdkVersion())
 			}
 			// The extension version is always at least as new as the last sdk int version (potentially identical)
 			latest[k] = v
@@ -341,7 +323,7 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 		name := PrebuiltApiModuleName(info.module, info.scope, "latest")
 		latestExtensionVersionModuleName := PrebuiltApiModuleName(info.module, info.scope, "latest.extension_version")
 		if info.isExtensionApiFile {
-			createLatestApiModuleExtensionVersionFile(mctx, latestExtensionVersionModuleName, strconv.Itoa(info.version))
+			createLatestApiModuleExtensionVersionFile(mctx, latestExtensionVersionModuleName, strconv.Itoa(info.apiLevel.FinalInt()))
 		} else {
 			createLatestApiModuleExtensionVersionFile(mctx, latestExtensionVersionModuleName, "-1")
 		}
