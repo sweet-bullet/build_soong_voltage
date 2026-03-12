@@ -371,6 +371,12 @@ func (a *AndroidApp) DepsMutator(ctx android.BottomUpMutatorContext) {
 	for _, aconfig_declaration := range a.aaptProperties.Flags_packages {
 		ctx.AddDependency(ctx.Module(), aconfigDeclarationTag, aconfig_declaration)
 	}
+
+	// Only require APEX symbol tools if we are doing a full tree build,
+	// or if this app is explicitly requested in an unbundled build.
+	if !ctx.Config().UnbundledBuild() || slices.Contains(ctx.Config().UnbundledBuildApps(), a.Name()) {
+		ctx.AddHostToolDependencies("gen_apex_symbols", "dexdeps")
+	}
 }
 
 func (a *AndroidApp) OverridablePropertiesDepsMutator(ctx android.BottomUpMutatorContext) {

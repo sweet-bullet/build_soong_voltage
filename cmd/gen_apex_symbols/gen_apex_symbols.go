@@ -61,11 +61,11 @@ func main() {
 		genJavaUsedBy(args[0], args[1], args[2:])
 
 	case "ndk_usedby":
-		if len(args) != 3 {
-			fmt.Println("Wrong argument length. Expecting 3 argument representing image file directory, llvm-readelf tool path, output path.")
+		if len(args) != 4 {
+			fmt.Println("Wrong argument length. Expecting 4 arguments: image file directory, llvm-readelf tool path, zipsync path, output path.")
 			os.Exit(1)
 		}
-		genNdkUsedBy(args[0], args[1], args[2])
+		genNdkUsedBy(args[0], args[1], args[2], args[3])
 
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
@@ -115,7 +115,7 @@ func genJavaUsedBy(dexdepsPath, outFile string, files []string) {
 	}
 }
 
-func genNdkUsedBy(imageDir, readelfPath, outputFile string) {
+func genNdkUsedBy(imageDir, readelfPath, zipsyncPath, outputFile string) {
 	tmpReadelfFile, err := os.CreateTemp("", "temporary-file.*")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create temp file: %v\n", err)
@@ -133,7 +133,7 @@ func genNdkUsedBy(imageDir, readelfPath, outputFile string) {
 	defer os.RemoveAll(tmpUnzippedDir)
 
 	// If there are any jars or apks, unzip them to surface native files.
-	unzipJarAndApk(imageDir, tmpUnzippedDir)
+	unzipJarAndApk(imageDir, tmpUnzippedDir, zipsyncPath)
 	// Analyze the unzipped files.
 	lookForExecFile(tmpUnzippedDir, readelfPath, tmpReadelfFile)
 	// Analyze the apex image staging dir itself.
@@ -145,14 +145,20 @@ func genNdkUsedBy(imageDir, readelfPath, outputFile string) {
 	parseReadelfOutput(tmpReadelfOutput, outputFile)
 }
 
-func unzipJarAndApk(dir, tmpUnzippedDir string) {
+func unzipJarAndApk(dir, tmpUnzippedDir, zipsyncPath string) {
 	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			return nil
 		}
 		if strings.HasSuffix(d.Name(), ".jar") || strings.HasSuffix(d.Name(), ".apk") {
-			cmd := exec.Command("unzip", "-o", path, "-d", tmpUnzippedDir)
-			cmd.Run() // Bash find -exec ignores individual unzip failures
+			// Create a unique subdirectory so zipsync doesn't delete previous extractions
+			subDir := filepath.Join(tmpUnzippedDir, d.Name()+"_extracted")
+
+			cmd := exec.Command(zipsyncPath, "-d", subDir, path)
+			if err := cmd.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "zipsync failed: %v\n", err)
+				os.Exit(1)
+			}
 		}
 		return nil
 	})
@@ -194,7 +200,10 @@ func lookForExecFile(dir, readelfPath string, tmpOutput *os.File) {
 			cmd := exec.Command(readelfPath, "--dyn-symbols", path)
 			cmd.Stdout = tmpOutput
 			cmd.Stderr = os.Stderr // preserve errors for debugging
-			cmd.Run()              // Bash find -exec ignores readelf crashes
+			if err := cmd.Run(); err != nil {
+				fmt.Fprintf(os.Stderr, "readelf failed: %v\n", err)
+				os.Exit(1)
+			}
 		}
 
 		return nil
