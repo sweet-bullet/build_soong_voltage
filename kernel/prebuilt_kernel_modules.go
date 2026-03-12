@@ -119,16 +119,35 @@ func (p *PrebuiltKernelModulesProperties) resolve(ctx android.ModuleContext, com
 	}
 	var zip *string
 	if p.Zip.Src != nil {
-		zip = proptools.StringPtr(android.PathForModuleSrc(ctx, *p.Zip.Src).String())
+		zip = proptools.StringPtr(command.PathForInputFromFile(android.PathForModuleSrc(ctx, *p.Zip.Src)))
 	}
+	var blocklistFile *string
+	if p.Blocklist_file != nil {
+		blocklistFile = proptools.StringPtr(command.PathForInputFromFile(android.PathForModuleSrc(ctx, *p.Blocklist_file)))
+	}
+	var optionsFile *string
+	if p.Options_file != nil {
+		optionsFile = proptools.StringPtr(command.PathForInputFromFile(android.PathForModuleSrc(ctx, *p.Options_file)))
+	}
+
+	var srcs []string
+	for _, src := range android.PathsForModuleSrc(ctx, p.Srcs.GetOrDefault(ctx, nil)) {
+		srcs = append(srcs, command.PathForInputFromFile(src))
+	}
+
+	var srcs_16k []string
+	for _, src := range android.PathsForModuleSrc(ctx, p.Srcs_16k) {
+		srcs_16k = append(srcs_16k, command.PathForInputFromFile(src))
+	}
+
 	return common.PrebuiltKernelModulesPropertiesJSON{
-		Srcs:                  android.PathsForModuleSrc(ctx, p.Srcs.GetOrDefault(ctx, nil)).Strings(),
+		Srcs:                  srcs,
 		Src_filenames_to_load: p.Src_filenames_to_load,
-		Srcs_16k:              android.PathsForModuleSrc(ctx, p.Srcs_16k).Strings(),
+		Srcs_16k:              srcs_16k,
 		System_dep:            systemDep,
 		Load_by_default:       p.Load_by_default,
-		Blocklist_file:        p.Blocklist_file,
-		Options_file:          p.Options_file,
+		Blocklist_file:        blocklistFile,
+		Options_file:          optionsFile,
 		Kernel_version:        p.Kernel_version,
 		Installable:           p.Installable,
 		Strip_debug_symbols:   p.Strip_debug_symbols,
@@ -204,7 +223,12 @@ func (pkm *prebuiltKernelModules) GenerateAndroidBuildActions(ctx android.Module
 	llvmObjcopy := config.ClangPath(ctx, "bin/llvm-objcopy")
 	llvmLib := config.ClangPath(ctx, "lib/x86_64-unknown-linux-gnu/libc++.so")
 
-	builder.Command().BuiltTool("kernel_modules_builder").
+	cmd := builder.Command()
+
+	props := pkm.properties.resolve(ctx, cmd)
+	android.WriteFileRule(ctx, propsFile, props.ToJSON())
+
+	cmd.BuiltTool("kernel_modules_builder").
 		Flag("--soong_zip").BuiltTool("soong_zip").
 		Flag("--zipsync").BuiltTool("zipsync").
 		Flag("--merge_zips").BuiltTool("merge_zips").
@@ -220,9 +244,6 @@ func (pkm *prebuiltKernelModules) GenerateAndroidBuildActions(ctx android.Module
 		Output(installsZip).
 		Implicits(deps)
 	builder.Build("zip_modules", "zip kernel modules")
-
-	props := pkm.properties.resolve(ctx, builder.Command())
-	android.WriteFileRule(ctx, propsFile, props.ToJSON())
 
 	installDir := android.PathForModuleInstall(ctx, "lib", "modules")
 	// Kernel module is installed to vendor_ramdisk/lib/modules regardless of product

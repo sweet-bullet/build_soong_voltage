@@ -55,20 +55,28 @@ type Ramdisk16kImgProperties struct {
 	}
 }
 
-func (p *Ramdisk16kImgProperties) resolve(ctx android.ModuleContext) common.Ramdisk16kImgPropertiesJSON {
+func (p *Ramdisk16kImgProperties) resolve(ctx android.ModuleContext, cmd *android.RuleBuilderCommand) common.Ramdisk16kImgPropertiesJSON {
 	var system_dep *string
 	if p.System_dep != nil {
-		system_dep = proptools.StringPtr(android.PathForModuleSrc(ctx, *p.System_dep).String())
+		system_dep = proptools.StringPtr(cmd.PathForInputFromFile(android.PathForModuleSrc(ctx, *p.System_dep)))
 	}
 	var zip *string
 	if p.Zip.Src != nil {
-		zip = proptools.StringPtr(android.PathForModuleSrc(ctx, *p.Zip.Src).String())
+		zip = proptools.StringPtr(cmd.PathForInputFromFile(android.PathForModuleSrc(ctx, *p.Zip.Src)))
+	}
+	var srcs []string
+	for _, src := range android.PathsForModuleSrc(ctx, p.Srcs) {
+		srcs = append(srcs, cmd.PathForInputFromFile(src))
+	}
+	var kernel *string
+	if p.Kernel != nil {
+		kernel = proptools.StringPtr(cmd.PathForInputFromFile(android.PathForModuleSrc(ctx, *p.Kernel)))
 	}
 	return common.Ramdisk16kImgPropertiesJSON{
-		Srcs:       android.PathsForModuleSrc(ctx, p.Srcs).Strings(),
+		Srcs:       srcs,
 		System_dep: system_dep,
 		Load:       p.Load,
-		Kernel:     p.Kernel,
+		Kernel:     kernel,
 		Zip: common.ZipProperties{
 			Src:                   zip,
 			Extra_blocked_modules: p.Zip.Extra_blocked_modules,
@@ -97,10 +105,6 @@ func (p *ramdisk16kImg) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	output := outputDir.Join(ctx, "ramdisk_16k.img")
 	intermediatesDir := outputDir.Join(ctx, "intermediates")
 
-	propsFile := android.PathForModuleOut(ctx, "props.json")
-	props := p.properties.resolve(ctx)
-	android.WriteFileRule(ctx, propsFile, props.ToJSON())
-
 	llvmStrip := config.ClangPath(ctx, "bin/llvm-strip")
 	// llvm-strip is a symlink to llvm-objcopy
 	llvmObjcopy := config.ClangPath(ctx, "bin/llvm-objcopy")
@@ -111,9 +115,14 @@ func (p *ramdisk16kImg) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		android.PathForModuleOut(ctx, "ramdisk_16k_intermediates.textproto"),
 	)
 
+	cmd := builder.Command()
+
+	propsFile := android.PathForModuleOut(ctx, "props.json")
+	props := p.properties.resolve(ctx, cmd)
+	android.WriteFileRule(ctx, propsFile, props.ToJSON())
+
 	// Determine the kernel version during execution.
-	cmd := builder.Command().
-		BuiltTool("ramdisk_16k_builder").
+	cmd.BuiltTool("ramdisk_16k_builder").
 		Flag("--extract_kernel").BuiltTool("extract_kernel").
 		Flag("--depmod").BuiltTool("depmod").
 		Flag("--llvm-strip").Input(llvmStrip).Implicit(llvmLib).Implicit(llvmObjcopy).
