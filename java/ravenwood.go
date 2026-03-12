@@ -344,6 +344,11 @@ targetResourceApk=%s
 	})
 }
 
+func (r *ravenwoodTest) IDEInfo(ctx android.BaseModuleContext, dpInfo *android.IdeInfo) {
+	r.Library.IDEInfo(ctx, dpInfo)
+	r.aapt.IDEInfo(ctx, dpInfo)
+}
+
 // This method is adapted from AndroidApp.aaptBuildActions() in app.go, with changes
 // irrelevant to RavenwoodTest removed.
 func (r *ravenwoodTest) aaptBuildActions(ctx android.ModuleContext) {
