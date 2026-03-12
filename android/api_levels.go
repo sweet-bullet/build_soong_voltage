@@ -42,14 +42,16 @@ type ApiLevel struct {
 	// The string representation of the API level.
 	value string
 
-	// A number associated with the API level. The exact value depends on
-	// whether this API level is a preview or final API.
+	// The major version number associated with the API level.
 	//
 	// For final API levels, this is the assigned version number.
 	//
 	// For preview API levels, this value has no meaning except to index known
 	// previews to determine ordering.
-	number int
+	major int
+
+	// The minor version number associated with the API level.
+	minor int
 
 	// Identifies this API level as either a preview or final API level.
 	isPreview bool
@@ -62,7 +64,7 @@ func (this ApiLevel) FinalInt() int {
 	if this.IsPreview() {
 		panic("Requested a final int from a non-final ApiLevel")
 	} else {
-		return this.number
+		return this.major
 	}
 }
 
@@ -73,7 +75,7 @@ func (this ApiLevel) FinalOrFutureInt() int {
 	if this.IsPreview() {
 		return FutureApiLevelInt
 	} else {
-		return this.number
+		return this.major
 	}
 }
 
@@ -87,12 +89,12 @@ func (this ApiLevel) FinalOrPreviewInt() int {
 		panic(fmt.Errorf("%v is not a recognized api_level\n", this))
 	}
 	if this.IsCurrent() {
-		return this.number
+		return this.major
 	}
 	if this.IsPreview() {
-		return previewAPILevelBase + this.number
+		return previewAPILevelBase + this.major
 	}
-	return this.number
+	return this.major
 }
 
 // Returns the canonical name for this API level. For a finalized API level
@@ -125,13 +127,13 @@ func (this ApiLevel) IsCurrent() bool {
 }
 
 func (this ApiLevel) IsNone() bool {
-	return this.number == -1
+	return this.major == -1
 }
 
 // Returns true if an app is compiling against private apis.
 // e.g. if sdk_version = "" in Android.bp, then the ApiLevel of that "sdk" is at PrivateApiLevel.
 func (this ApiLevel) IsPrivate() bool {
-	return this.number == PrivateApiLevel.number
+	return this.major == PrivateApiLevel.major
 }
 
 // EffectiveVersion converts an ApiLevel into the concrete ApiLevel that the module should use. For
@@ -203,10 +205,16 @@ func (this ApiLevel) CompareTo(other ApiLevel) int {
 		return -1
 	}
 
-	if this.number < other.number {
+	if this.major < other.major {
 		return -1
-	} else if this.number == other.number {
-		return 0
+	} else if this.major == other.major {
+		if this.minor < other.minor {
+			return -1
+		} else if this.minor == other.minor {
+			return 0
+		} else {
+			return 1
+		}
 	} else {
 		return 1
 	}
@@ -235,7 +243,8 @@ func (this ApiLevel) LessThanOrEqualTo(other ApiLevel) bool {
 func UncheckedFinalApiLevel(num int) ApiLevel {
 	return ApiLevel{
 		value:     strconv.Itoa(num),
-		number:    num,
+		major:     num,
+		minor:     0,
 		isPreview: false,
 	}
 }
@@ -243,7 +252,8 @@ func UncheckedFinalApiLevel(num int) ApiLevel {
 func uncheckedFinalIncrementalApiLevel(num int, increment int) ApiLevel {
 	return ApiLevel{
 		value:     strconv.Itoa(num) + "." + strconv.Itoa(increment),
-		number:    num,
+		major:     num,
+		minor:     increment,
 		isPreview: false,
 	}
 }
@@ -251,12 +261,12 @@ func uncheckedFinalIncrementalApiLevel(num int, increment int) ApiLevel {
 var NoneApiLevel = ApiLevel{
 	value: "(no version)",
 	// Not 0 because we don't want this to compare equal with the first preview.
-	number:    -1,
+	major:     -1,
 	isPreview: true,
 }
 
 // A special ApiLevel that all modules should at least support.
-var MinApiLevel = ApiLevel{number: 1}
+var MinApiLevel = ApiLevel{major: 1}
 
 // Sentinel ApiLevel to validate that an apiLevel is either an int or a recognized codename.
 var InvalidApiLevel = NewInvalidApiLevel("invalid")
@@ -266,7 +276,7 @@ var InvalidApiLevel = NewInvalidApiLevel("invalid")
 func NewInvalidApiLevel(raw string) ApiLevel {
 	return ApiLevel{
 		value:     raw,
-		number:    -2, // One less than NoneApiLevel
+		major:     -2, // One less than NoneApiLevel
 		isPreview: true,
 	}
 }
@@ -368,6 +378,18 @@ func ApiLevelFromUserWithConfig(config Config, raw string) (ApiLevel, error) {
 	}
 	canonical, ok := apiLevelsReleasedVersions[raw]
 	if !ok {
+		if strings.Contains(raw, ".") {
+			// assume a major.minor version code
+			parts := strings.Split(raw, ".")
+			if len(parts) == 2 {
+				sdk, sdk_err := strconv.Atoi(parts[0])
+				qpr, qpr_err := strconv.Atoi(parts[1])
+				if sdk_err == nil && qpr_err == nil {
+					return uncheckedFinalIncrementalApiLevel(sdk, qpr), nil
+				}
+			}
+		}
+
 		asInt, err := strconv.Atoi(raw)
 		if err != nil {
 			return NoneApiLevel, fmt.Errorf("%q could not be parsed as an integer and is not a recognized codename", raw)

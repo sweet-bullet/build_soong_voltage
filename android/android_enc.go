@@ -2337,7 +2337,11 @@ func (r ApiLevel) Encode(ctx gobtools.EncContext, buf *bytes.Buffer) error {
 		return err
 	}
 
-	if err = gobtools.EncodeInt(buf, r.number); err != nil {
+	if err = gobtools.EncodeInt(buf, r.major); err != nil {
+		return err
+	}
+
+	if err = gobtools.EncodeInt(buf, r.minor); err != nil {
 		return err
 	}
 
@@ -2349,11 +2353,13 @@ func (r ApiLevel) Encode(ctx gobtools.EncContext, buf *bytes.Buffer) error {
 
 func (r ApiLevel) CustomHash(hasher *proptools.Hasher) error {
 	hasher.WriteString(":android.ApiLevel")
-	hasher.WriteInt(3)
+	hasher.WriteInt(4)
 	hasher.WriteString(":.string")
 	hasher.WriteString(r.value)
 	hasher.WriteString(":.int")
-	hasher.WriteUint64(uint64(r.number))
+	hasher.WriteUint64(uint64(r.major))
+	hasher.WriteString(":.int")
+	hasher.WriteUint64(uint64(r.minor))
 	hasher.WriteString(":.bool")
 	if r.isPreview {
 		hasher.WriteByte(1)
@@ -2371,7 +2377,12 @@ func (r *ApiLevel) Decode(ctx gobtools.EncContext, buf *bytes.Reader) error {
 		return err
 	}
 
-	err = gobtools.DecodeInt(buf, &r.number)
+	err = gobtools.DecodeInt(buf, &r.major)
+	if err != nil {
+		return err
+	}
+
+	err = gobtools.DecodeInt(buf, &r.minor)
 	if err != nil {
 		return err
 	}

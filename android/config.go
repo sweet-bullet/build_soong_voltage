@@ -56,14 +56,14 @@ const FutureApiLevelInt = 10000
 // The differentiation is necessary to enable different validation rules for these two possible values.
 var PrivateApiLevel = ApiLevel{
 	value:     "current",             // The value is current since aidl expects `current` as the default (TestAidlFlagsWithMinSdkVersion)
-	number:    FutureApiLevelInt + 1, // This is used to differentiate it from FutureApiLevel
+	major:     FutureApiLevelInt + 1, // This is used to differentiate it from FutureApiLevel
 	isPreview: true,
 }
 
 // FutureApiLevel represents unreleased API levels.
 var FutureApiLevel = ApiLevel{
 	value:     "current",
-	number:    FutureApiLevelInt,
+	major:     FutureApiLevelInt,
 	isPreview: true,
 }
 
@@ -1371,7 +1371,7 @@ func (c *config) PreviewApiLevels() []ApiLevel {
 
 		levels = append(levels, ApiLevel{
 			value:     codename,
-			number:    i,
+			major:     i,
 			isPreview: true,
 		})
 		i++
