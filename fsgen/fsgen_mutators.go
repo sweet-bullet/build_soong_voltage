@@ -402,6 +402,16 @@ func appendDepIfAppropriate(mctx android.BottomUpMutatorContext, deps *multilibD
 	}
 }
 
+func isEligibleForFsDeps(mctx android.BottomUpMutatorContext) bool {
+	m := mctx.Module()
+	// Only add the module as dependency when:
+	// - it is enabled
+	// - its namespace is included in PRODUCT_SOONG_NAMESPACES
+	// - it is not hidden from make
+	// - it is a preferred variant in a source/prebuilt pair
+	return m.Enabled(mctx) && m.ExportedToMake() && !m.IsHideFromMake() && android.IsModulePreferred(m)
+}
+
 func collectDepsMutator(mctx android.BottomUpMutatorContext) {
 	if !shouldEnableFilesystemCreator(mctx) {
 		return
@@ -424,40 +434,37 @@ func collectDepsMutator(mctx android.BottomUpMutatorContext) {
 
 	if _, ok := fsGenState.depCandidatesMap[moduleName]; ok {
 		installPartition := m.PartitionTag(mctx.DeviceConfig())
-		// Only add the module as dependency when:
-		// - its enabled
-		// - its namespace is included in PRODUCT_SOONG_NAMESPACES
-		if m.Enabled(mctx) && m.ExportedToMake() {
+		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
 		}
 	}
 
 	if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".native_bridge"]; ok {
 		installPartition := m.PartitionTag(mctx.DeviceConfig())
-		if m.Enabled(mctx) && m.ExportedToMake() {
+		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeEnabled, mctx.ModuleName())
 		}
 	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".bootstrap.native_bridge"]; ok {
 		installPartition := m.PartitionTag(mctx.DeviceConfig())
-		if m.Enabled(mctx) && m.ExportedToMake() {
+		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeEnabled, mctx.ModuleName())
 		}
 	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".vendor_ramdisk"]; ok && mctx.Module().InstallInVendorRamdisk() {
 		installPartition := "vendor_ramdisk"
-		if m.Enabled(mctx) && m.ExportedToMake() {
+		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps["vendor_ramdisk-debug"], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
 		}
 	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".recovery"]; ok && mctx.Module().InstallInRecovery() {
 		installPartition := "recovery"
-		if m.Enabled(mctx) && m.ExportedToMake() {
+		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
 		}
 	}
 
 	// store the map of module to (required,overrides) even if the module is not in PRODUCT_PACKAGES.
 	// the module might be installed transitively.
-	if m.Enabled(mctx) && m.ExportedToMake() {
+	if isEligibleForFsDeps(mctx) {
 		var ccAndRustSharedLibs []string
 		if rustModule, ok := m.(*rust.Module); ok {
 			if !rustModule.StdLinkageIsRlibLinkage(mctx.Device()) {
@@ -620,7 +627,7 @@ func updatePartitionsOfOverrideModules(mctx android.BottomUpMutatorContext) {
 		}
 
 		// TODO (b/420968370): Use fully qualifed name after we enforce that all namespaces are valid.
-		if baseModuleProps, ok := fsGenState.moduleToInstallationProps.baseModuleNameToPropsMap[base]; ok && mctx.Module().Enabled(mctx) && mctx.Module().ExportedToMake() {
+		if baseModuleProps, ok := fsGenState.moduleToInstallationProps.baseModuleNameToPropsMap[base]; ok && isEligibleForFsDeps(mctx) {
 			basePartitionCandidates := []string{}
 			for _, ip := range baseModuleProps {
 				basePartitionCandidates = append(basePartitionCandidates, ip.Partition)
