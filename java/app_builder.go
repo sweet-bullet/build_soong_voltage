@@ -303,8 +303,7 @@ func (a *AndroidApp) generateJavaUsedByApex(ctx android.ModuleContext) {
 	javaApiUsedByOutputFile := android.PathForModuleOut(ctx, a.installApkName+"_using.xml")
 	javaUsedByRule := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
 	javaUsedByRule.Command().
-		BuiltTool("gen_apex_symbols").
-		Text("java_usedby").
+		Tool(android.PathForSource(ctx, "build/soong/scripts/gen_java_usedby_apex.sh")).
 		BuiltTool("dexdeps").
 		Output(javaApiUsedByOutputFile).
 		Input(a.Library.Module.outputFile)
