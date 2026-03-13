@@ -119,10 +119,6 @@ var prepareForTestWithJavaDefaultModulesBase = android.GroupFixturePreparers(
 	prepareForTestWithFrameworkDeps,
 	// Add dexpreopt compat libs (android.test.base, etc.) and a fake dex2oatd module.
 	dexpreopt.PrepareForTestWithDexpreoptCompatLibs,
-	android.PrepareForTestWithHostTools(
-		"dexdeps",
-		"gen_apex_symbols",
-	),
 )
 
 // Test fixture preparer that will define default java modules, e.g. standard prebuilt modules.

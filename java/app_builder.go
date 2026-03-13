@@ -300,10 +300,6 @@ func TransformJniLibsToJar(
 }
 
 func (a *AndroidApp) generateJavaUsedByApex(ctx android.ModuleContext) {
-	// Skip generating the XML file for unbundled test apps that don't have the tools
-	if ctx.Config().UnbundledBuild() && !slices.Contains(ctx.Config().UnbundledBuildApps(), a.Name()) {
-		return
-	}
 	javaApiUsedByOutputFile := android.PathForModuleOut(ctx, a.installApkName+"_using.xml")
 	javaUsedByRule := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
 	javaUsedByRule.Command().
