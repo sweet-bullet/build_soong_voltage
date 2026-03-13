@@ -119,6 +119,10 @@ func (m *otacertsZipModule) onlyInRecovery() bool {
 	return m.ModuleBase.InstallInRecovery()
 }
 
+func (m *otacertsZipModule) DepsMutator(ctx android.BottomUpMutatorContext) {
+	ctx.AddHostToolDependencies("soong_zip")
+}
+
 func (m *otacertsZipModule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	// Read .x509.pem file defined in PRODUCT_DEFAULT_DEV_CERTIFICATE or the default test key.
 	pem, _ := ctx.Config().DefaultAppCertificate(ctx)
@@ -127,7 +131,7 @@ func (m *otacertsZipModule) GenerateAndroidBuildActions(ctx android.ModuleContex
 	srcPaths := append([]android.SourcePath{pem}, extras...)
 	outputPath := android.PathForModuleOut(ctx, m.outputFileName())
 
-	rule := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
+	rule := android.NewRuleBuilder(pctx, ctx)
 	cmd := rule.Command().BuiltTool("soong_zip").
 		FlagWithOutput("-o ", outputPath).
 		Flag("-j ").
