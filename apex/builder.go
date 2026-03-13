@@ -1016,7 +1016,7 @@ func (a *apexBundle) buildApex(ctx android.ModuleContext) {
 		}
 	}
 	apisBackedbyOutputFile := android.PathForModuleOut(ctx, a.Name()+"_backing.txt")
-	rb := android.NewRuleBuilder(pctx, ctx)
+	rb := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
 	rb.Command().
 		BuiltTool("gen_apex_symbols").
 		Text("ndk_backedby").
@@ -1031,7 +1031,7 @@ func (a *apexBundle) buildApex(ctx android.ModuleContext) {
 		}
 	}
 	javaApiUsedbyOutputFile := android.PathForModuleOut(ctx, a.Name()+"_using.xml")
-	javaUsedByRule := android.NewRuleBuilder(pctx, ctx)
+	javaUsedByRule := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
 	javaUsedByRule.Command().
 		BuiltTool("gen_apex_symbols").
 		Text("java_usedby").
