@@ -15,6 +15,10 @@
 package cc
 
 import (
+	"fmt"
+	"runtime"
+	"slices"
+	"strings"
 	"testing"
 
 	"android/soong/android"
@@ -39,4 +43,90 @@ func TestBinaryLinkerScripts(t *testing.T) {
 		binFoo.Args["ldFlags"], "-Wl,--script,foo.ld")
 	android.AssertStringDoesContain(t, "missing flag for linker_scripts",
 		binFoo.Args["ldFlags"], "-Wl,--script,bar.ld")
+}
+
+func TestBinaryLibs(t *testing.T) {
+	t.Parallel()
+	bp := `
+		cc_binary_host {
+			name: "foo",
+			srcs: ["foo.cc"],
+			static_libs: ["libstatic"],
+			shared_libs: ["libshared"],
+			system_shared_libs: ["libsystem"],
+			static: {
+				static_libs: ["libstatic_static"],
+			},
+			shared: {
+				static_libs: ["libstatic_shared"],
+				shared_libs: ["libshared_shared"],
+			},
+			stl: "none",
+		}
+	`
+
+	libs := []string{"libstatic", "libshared", "libstatic_static", "libshared_static", "libstatic_shared", "libshared_shared", "libsystem"}
+	for _, lib := range libs {
+		bp += fmt.Sprintf(`cc_library { name: "%s", host_supported: true }`+"\n", lib)
+	}
+
+	testCases := []struct {
+		name      string
+		preparer  android.FixturePreparer
+		linuxOnly bool
+		static    []string
+		shared    []string
+	}{
+		{
+			name:     "normal",
+			preparer: nil,
+			static:   []string{"libstatic", "libstatic_shared"},
+			shared:   []string{"libshared", "libshared_shared", "libsystem"},
+		},
+		{
+			name: "BUILD_HOST_static=1",
+			preparer: android.FixtureModifyConfig(func(config android.Config) {
+				config.TestProductVariables.HostStaticBinaries = BoolPtr(true)
+			}),
+			linuxOnly: true,
+			static:    []string{"libstatic", "libstatic_static", "libsystem"},
+			shared:    nil,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.linuxOnly && runtime.GOOS != "linux" {
+				t.Skip("test only supported on linux")
+			}
+
+			result := android.GroupFixturePreparers(
+				PrepareForIntegrationTestWithCc,
+				android.OptionalFixturePreparer(testCase.preparer),
+			).RunTestWithBp(t, bp)
+
+			binFoo := result.ModuleForTests(t, "foo", result.Config.BuildOSTarget.String()).Rule("ld")
+			var binFooSharedLibs []string
+			var binFooStaticLibs []string
+			for _, dep := range binFoo.Implicits {
+				if strings.HasSuffix(dep.Base(), ".so.toc") {
+					binFooSharedLibs = append(binFooSharedLibs, strings.TrimSuffix(dep.Base(), ".so.toc"))
+				}
+				if strings.HasSuffix(dep.Base(), ".dylib") {
+					binFooSharedLibs = append(binFooSharedLibs, strings.TrimSuffix(dep.Base(), ".dylib"))
+				}
+				if strings.HasSuffix(dep.Base(), ".a") {
+					binFooStaticLibs = append(binFooStaticLibs, strings.TrimSuffix(dep.Base(), ".a"))
+				}
+			}
+
+			if g, w := binFooSharedLibs, testCase.shared; !slices.Equal(g, w) {
+				t.Errorf("incorrect shared libs, expected %q got %q", w, g)
+			}
+			if g, w := binFooStaticLibs, testCase.static; !slices.Equal(g, w) {
+				t.Errorf("incorrect static libs, expected %q got %q", w, g)
+			}
+		})
+	}
+
 }

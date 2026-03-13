@@ -55,6 +55,14 @@ type BinaryLinkerProperties struct {
 
 	// Inject boringssl hash into the shared library.  This is only intended for use by external/boringssl.
 	Inject_bssl_hash *bool `android:"arch_variant"`
+
+	Static struct {
+		Static_libs proptools.Configurable[[]string] `android:"arch_variant"`
+	} `android:"arch_variant"`
+	Shared struct {
+		Static_libs proptools.Configurable[[]string] `android:"arch_variant"`
+		Shared_libs proptools.Configurable[[]string] `android:"arch_variant"`
+	} `android:"arch_variant"`
 }
 
 func init() {
@@ -158,7 +166,14 @@ func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	}
 
 	if binary.static() {
+		// Add static libraries that are specific to static binaries.
+		deps.StaticLibs = append(deps.StaticLibs, binary.Properties.Static.Static_libs.GetOrDefault(ctx, nil)...)
+		// Convert SystemSharedLibs to static libraries for static binaries.
 		deps.StaticLibs = append(deps.StaticLibs, deps.SystemSharedLibs...)
+	} else {
+		// Add static and shared libraries that are specific to shared binaries.
+		deps.StaticLibs = append(deps.StaticLibs, binary.Properties.Shared.Static_libs.GetOrDefault(ctx, nil)...)
+		deps.SharedLibs = append(deps.SharedLibs, binary.Properties.Shared.Shared_libs.GetOrDefault(ctx, nil)...)
 	}
 
 	if ctx.toolchain().Bionic() {
