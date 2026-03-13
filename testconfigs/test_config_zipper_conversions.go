@@ -25,8 +25,8 @@ import (
 
 const (
 	annotationPrefixChar    = "@"
-	includeAnnotationPrefix = "includes-annotation"
-	excludeAnnotationPrefix = "excludes-annotation"
+	includeAnnotationPrefix = "include-annotation"
+	excludeAnnotationPrefix = "exclude-annotation"
 )
 
 // mapToListDeterministic ensures a deterministic list is formed
