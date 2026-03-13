@@ -789,6 +789,9 @@ func setOutputFiles(ctx android.ModuleContext, m *Module) {
 	if m.dexer.proguardDictionary.Valid() {
 		ctx.SetOutputFiles(android.Paths{m.dexer.proguardDictionary.Path()}, ".proguard_map")
 	}
+	if m.dexpreopter.outputProfilePathOnHost != nil {
+		ctx.SetOutputFiles(android.Paths{m.dexpreopter.outputProfilePathOnHost}, ".dexpreopt_prof")
+	}
 	ctx.SetOutputFiles(m.properties.Generated_srcjars, ".generated_srcjars")
 }
 
