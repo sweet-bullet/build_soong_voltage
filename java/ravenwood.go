@@ -517,16 +517,34 @@ func (r *ravenwoodLibgroup) GenerateAndroidBuildActions(ctx android.ModuleContex
 	installPath := android.PathForModuleInstall(ctx, r.installName())
 	for _, lib := range r.ravenwoodLibgroupProperties.Libs {
 		libModule := ctx.GetDirectDepProxyWithTag(lib, ravenwoodLibContentTag)
-		if libModule.IsNil() {
+
+		reportMissing := func() {
 			if ctx.Config().AllowMissingDependencies() {
 				ctx.AddMissingDependencies([]string{lib})
 			} else {
 				ctx.PropertyErrorf("lib", "missing dependency %q", lib)
 			}
+		}
+
+		if libModule.IsNil() {
+			reportMissing()
 			continue
 		}
-		libJar := android.OutputFileForModule(ctx, libModule, "")
-		install(installPath, libJar)
+		if dep, ok := android.OtherModuleProvider(ctx, libModule, JavaInfoProvider); ok {
+			if len(dep.ImplementationAndResourcesJars) > 1 {
+				jarName := android.OutputFileForModule(ctx, libModule, "").Base()
+				outputFile := android.PathForModuleOut(ctx, "combined", jarName)
+				TransformJarsToJar(ctx, outputFile, "combine", dep.ImplementationAndResourcesJars,
+					android.OptionalPath{}, false, nil, nil)
+				install(installPath, outputFile)
+			} else if len(dep.ImplementationAndResourcesJars) == 1 {
+				install(installPath, dep.ImplementationAndResourcesJars[0])
+			} else {
+				reportMissing()
+			}
+		} else {
+			reportMissing()
+		}
 	}
 
 	soInstallPath := android.PathForModuleInstall(ctx, r.installName()).Join(ctx, getLibPath(r.forceArchType))
