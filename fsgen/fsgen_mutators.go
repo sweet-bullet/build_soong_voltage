@@ -384,19 +384,30 @@ func checkDepModuleInMultipleNamespaces(mctx android.BottomUpMutatorContext, fou
 
 func appendDepIfAppropriate(mctx android.BottomUpMutatorContext, deps *multilibDeps, installPartition string, nbs android.NativeBridgeSupport, moduleName string) {
 	checkDepModuleInMultipleNamespaces(mctx, *deps, moduleName, installPartition)
+	arch := mctx.Module().Target().Arch.ArchType
+	if android.InList(installPartition, []string{
+		"recovery",
+		"ramdisk",
+		"vendor_ramdisk",
+		"debug_ramdisk",
+	}) {
+		// Only the primary arch is supported for these partitions.
+		// https://cs.android.com/android/_/android/platform/build/soong/+/d046c2afef086a35d24222b09f4d2c4914e8a2a5:android/arch.go;l=618-621;drc=92ac46d1fe04a94d94025554bcecc5f8cb2416ae;bpv=1;bpt=0
+		arch = mctx.Config().DevicePrimaryArchType()
+	}
 	if _, ok := (*deps)[moduleName]; ok {
 		// Prefer the namespace-specific module over the platform module
 		if mctx.Namespace().Path != "." {
 			(*deps)[moduleName].Namespace = mctx.Namespace().Path
 		}
-		(*deps)[moduleName].Arch = append((*deps)[moduleName].Arch, mctx.Module().Target().Arch.ArchType)
+		(*deps)[moduleName].Arch = append((*deps)[moduleName].Arch, arch)
 		(*deps)[moduleName].NativeBridgeSupport[nbs] = true
 	} else {
 		multilib, _ := mctx.Module().DecodeMultilib(mctx)
 		(*deps)[moduleName] = &depCandidateProps{
 			Namespace:           mctx.Namespace().Path,
+			Arch:                []android.ArchType{arch},
 			Multilib:            multilib,
-			Arch:                []android.ArchType{mctx.Module().Target().Arch.ArchType},
 			NativeBridgeSupport: map[android.NativeBridgeSupport]bool{nbs: true},
 		}
 	}
@@ -432,6 +443,8 @@ func collectDepsMutator(mctx android.BottomUpMutatorContext) {
 		}
 	}
 
+	image, imageOk := mctx.Module().(android.ImageInterface)
+
 	if _, ok := fsGenState.depCandidatesMap[moduleName]; ok {
 		installPartition := m.PartitionTag(mctx.DeviceConfig())
 		if isEligibleForFsDeps(mctx) {
@@ -449,13 +462,13 @@ func collectDepsMutator(mctx android.BottomUpMutatorContext) {
 		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeEnabled, mctx.ModuleName())
 		}
-	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".vendor_ramdisk"]; ok && mctx.Module().InstallInVendorRamdisk() {
+	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".vendor_ramdisk"]; ok && imageOk && image.VendorRamdiskVariantNeeded(mctx) {
 		installPartition := "vendor_ramdisk"
 		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps["vendor_ramdisk-debug"], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
 		}
-	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".recovery"]; ok && mctx.Module().InstallInRecovery() {
+	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".recovery"]; ok && imageOk && image.RecoveryVariantNeeded(mctx) {
 		installPartition := "recovery"
 		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
