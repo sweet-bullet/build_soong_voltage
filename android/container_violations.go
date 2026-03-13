@@ -824,6 +824,10 @@ var ContainerDependencyViolationAllowlist = map[string][]string{
 		"framework", // cts -> unstable
 	},
 
+	"CtsTelephonySatelliteTestCases": {
+		"framework", // cts -> unstable
+	},
+
 	"CtsTelephonyTestCases": {
 		"framework", // cts -> unstable
 	},
@@ -1133,6 +1137,10 @@ var ContainerDependencyViolationAllowlist = map[string][]string{
 	},
 
 	"MediaRouterServiceTests": {
+		"framework", // cts -> unstable
+	},
+
+	"MockPointingUiApp": {
 		"framework", // cts -> unstable
 	},
 
