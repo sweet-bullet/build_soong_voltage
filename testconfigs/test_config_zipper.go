@@ -80,8 +80,13 @@ func (zipper *TestConfigZipper) gatherRelatedModuleInfos(ctx android.SingletonCo
 			}
 		}
 
+		commonModuleInfo := android.OtherModuleProviderOrDefault(ctx, proxy, android.CommonModuleInfoProvider)
+
 		if testSuiteInfo, ok := android.OtherModuleProvider(ctx, proxy, android.TestSuiteInfoProvider); ok {
-			zipper.testModulesTestSuiteInfo[proxy.Name()] = &testSuiteInfo
+			if _, exists := zipper.testModulesTestSuiteInfo[proxy.Name()]; !exists || !commonModuleInfo.Host {
+				// Overwrite with device variant.
+				zipper.testModulesTestSuiteInfo[proxy.Name()] = &testSuiteInfo
+			}
 		}
 		if testExecutionPlan, ok := android.OtherModuleProvider(ctx, proxy, TestExecutionPlanProvider); ok {
 			zipper.testExecutionPlans[proxy.Name()] = &testExecutionPlan
