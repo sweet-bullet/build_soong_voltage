@@ -366,9 +366,6 @@ var (
 		// this new warning are fixed.
 		"-Wno-null-pointer-arithmetic",
 
-		// http://b/165945989
-		"-Wno-psabi",
-
 		// http://b/199369603
 		"-Wno-null-pointer-subtraction",
 
