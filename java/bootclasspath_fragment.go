@@ -1043,8 +1043,7 @@ type bootclasspathFragmentSdkMemberProperties struct {
 	Filtered_flags_path android.OptionalPath `supported_build_releases:"Tiramisu+"`
 
 	// Whether to use profile-guided dexpreopt.
-	// TODO(b/342163020): Replace with the next codename after Baklava once finalized.
-	DexPreoptProfileGuided bool `supported_build_releases:"current+"`
+	DexPreoptProfileGuided bool `supported_build_releases:"CinnamonBun+"`
 }
 
 func (b *bootclasspathFragmentSdkMemberProperties) PopulateFromVariant(ctx android.SdkMemberContext, variant android.ModuleProxy) {
