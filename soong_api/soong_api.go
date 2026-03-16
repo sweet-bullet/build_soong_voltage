@@ -67,11 +67,10 @@ type SoongApiModuleRecord struct {
 	TopLevelTarget bool `json:"top_level_target,omitempty"`
 
 	// Java / CC / Rust
-	TransitiveSrcFiles []string `json:"transitive_src_files,omitempty"` // Java sources
-	Libs               []string `json:"libs,omitempty"`                 // Java javalib / CC sharedLibs
-	LibFiles           []string `json:"lib_files,omitempty"`            // Path to jars or .a
-	StaticLibs         []string `json:"static_libs,omitempty"`          // Java staticlib / CC staticLibs
-	StaticLibFiles     []string `json:"static_lib_files,omitempty"`     // Path to jars or .a
+	Libs           []string `json:"libs,omitempty"`             // Java javalib / CC sharedLibs
+	LibFiles       []string `json:"lib_files,omitempty"`        // Path to jars or .a
+	StaticLibs     []string `json:"static_libs,omitempty"`      // Java staticlib / CC staticLibs
+	StaticLibFiles []string `json:"static_lib_files,omitempty"` // Path to jars or .a
 
 	// For CC / Rust
 	WholeStaticLibs     []string `json:"whole_static_libs,omitempty"`
@@ -126,11 +125,7 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 			record.Licenses = commonInfo.Licenses.Licenses
 		}
 
-		if javaInfo, ok := android.OtherModuleProvider(ctx, m, java.JavaInfoProvider); ok {
-			srcFiles := javaInfo.TransitiveSrcFiles.ToList()
-			if len(srcFiles) > 0 {
-				record.TransitiveSrcFiles = pathsToStrings(srcFiles)
-			}
+		if _, ok := android.OtherModuleProvider(ctx, m, java.JavaInfoProvider); ok {
 
 			// Module name of Java libs and staitc_libs
 			ctx.VisitDirectDepsProxies(m, func(dep android.ModuleProxy) {
@@ -232,7 +227,6 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 		}
 
 		// --- Final data deduplication and cleanup ---
-		record.TransitiveSrcFiles = android.FirstUniqueStrings(record.TransitiveSrcFiles)
 		record.BuiltFiles = android.FirstUniqueStrings(record.BuiltFiles)
 		record.StaticLibs = android.FirstUniqueStrings(record.StaticLibs)
 		record.StaticLibFiles = android.FirstUniqueStrings(record.StaticLibFiles)
