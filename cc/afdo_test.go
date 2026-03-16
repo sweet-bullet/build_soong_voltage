@@ -577,3 +577,79 @@ func TestAfdoDepsWithoutProfile(t *testing.T) {
 		t.Errorf("libFoo missing dependency on non-afdo variant of libBar")
 	}
 }
+
+func TestAfdoIncompleteCoverage(t *testing.T) {
+	t.Parallel()
+	bp := `
+	cc_library_shared {
+		name: "libTestWithCompleteCoverage",
+		srcs: ["test.c"],
+		afdo: true,
+	}
+
+	cc_library_shared {
+		name: "libTestWithIncompleteCoverage",
+		srcs: ["test.c"],
+		afdo: true,
+	}
+	`
+
+	result := android.GroupFixturePreparers(
+		PrepareForTestWithFdoProfile,
+		prepareForCcTest,
+		android.FixtureAddTextFile("afdo_profiles_package/libTestWithCompleteCoverage.afdo", ""),
+		android.FixtureAddTextFile("afdo_profiles_package/libTestWithIncompleteCoverage.afdo", ""),
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.AfdoProfiles = []string{
+				"libTestWithCompleteCoverage://afdo_profiles_package:libTestWithCompleteCoverage_afdo",
+				"libTestWithIncompleteCoverage://afdo_profiles_package:libTestWithIncompleteCoverage_afdo",
+			}
+		}),
+		android.MockFS{
+			"afdo_profiles_package/Android.bp": []byte(`
+				fdo_profile {
+					name: "libTestWithCompleteCoverage_afdo",
+					arch: {
+						arm64: {
+							profile: "libTestWithCompleteCoverage.afdo",
+						},
+					},
+				}
+				fdo_profile {
+					name: "libTestWithIncompleteCoverage_afdo",
+					arch: {
+						arm64: {
+							profile: "libTestWithIncompleteCoverage.afdo",
+						},
+					},
+					incomplete_coverage: true,
+				}
+			`),
+		}.AddToFixture(),
+	).RunTestWithBp(t, bp)
+
+	profileSampleAccurateFlag := "-fprofile-sample-accurate"
+	profileSampleInaccurateFlag := "-fno-profile-sample-accurate"
+
+	// Test module with complete coverage (default)
+	libComplete := result.ModuleForTests(t, "libTestWithCompleteCoverage", "android_arm64_armv8-a_shared")
+	cFlagsComplete := libComplete.Rule("cc").Args["cFlags"]
+	if !strings.Contains(cFlagsComplete, profileSampleAccurateFlag) {
+		t.Errorf("Expected 'libTestWithCompleteCoverage' to have %q in cflags %q", profileSampleAccurateFlag, cFlagsComplete)
+	}
+	ldFlagsComplete := libComplete.Rule("ld").Args["ldFlags"]
+	if !strings.Contains(ldFlagsComplete, profileSampleAccurateFlag) {
+		t.Errorf("Expected 'libTestWithCompleteCoverage' to have %q in ldflags %q", profileSampleAccurateFlag, ldFlagsComplete)
+	}
+
+	// Test module with incomplete coverage
+	libIncomplete := result.ModuleForTests(t, "libTestWithIncompleteCoverage", "android_arm64_armv8-a_shared")
+	cFlagsIncomplete := libIncomplete.Rule("cc").Args["cFlags"]
+	if !strings.Contains(cFlagsIncomplete, profileSampleInaccurateFlag) {
+		t.Errorf("Expected 'libTestWithIncompleteCoverage' to have %q in cflags %q", profileSampleInaccurateFlag, cFlagsIncomplete)
+	}
+	ldFlagsIncomplete := libIncomplete.Rule("ld").Args["ldFlags"]
+	if !strings.Contains(ldFlagsIncomplete, profileSampleInaccurateFlag) {
+		t.Errorf("Expected 'libTestWithIncompleteCoverage' to have %q in ldflags %q", profileSampleInaccurateFlag, ldFlagsIncomplete)
+	}
+}
