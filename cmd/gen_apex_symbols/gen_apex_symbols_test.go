@@ -119,18 +119,25 @@ func TestParseReadelfOutput(t *testing.T) {
 func TestLookForExecFile(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create test files to verify file permission and extension checking
-	// 1. A standard .so file (should be processed)
+	// Valid ELF header bytes
+	elfMagic := []byte("\x7fELF")
+
+	// 1. A standard .so file with an ELF header (should be processed)
 	soFile := filepath.Join(tmpDir, "libtest.so")
-	os.WriteFile(soFile, []byte("dummy"), 0644)
+	os.WriteFile(soFile, elfMagic, 0644)
 
 	// 2. A normal text file (should be IGNORED)
 	txtFile := filepath.Join(tmpDir, "readme.txt")
-	os.WriteFile(txtFile, []byte("dummy"), 0644)
+	os.WriteFile(txtFile, []byte("dummy text"), 0644)
 
-	// 3. An executable binary without a .so extension (should be processed)
+	// 3. An executable binary with an ELF header (should be processed)
 	binFile := filepath.Join(tmpDir, "my_executable")
-	os.WriteFile(binFile, []byte("dummy"), 0755)
+	os.WriteFile(binFile, elfMagic, 0755)
+
+	// 4. An executable shell script WITHOUT an ELF header (should be IGNORED)
+	// This explicitly tests the fix for the bin/media_provider crash!
+	scriptFile := filepath.Join(tmpDir, "media_provider_script")
+	os.WriteFile(scriptFile, []byte("#!/bin/sh\necho 'hello'"), 0755)
 
 	// Create a mock readelf script that just echoes the file name it was passed
 	mockReadelf := filepath.Join(tmpDir, "mock_readelf.sh")
@@ -155,9 +162,12 @@ echo "Processed: $(basename $2)"
 		t.Errorf("Failed to process standard .so file")
 	}
 	if !strings.Contains(actual, "Processed: my_executable") {
-		t.Errorf("Failed to process executable binary")
+		t.Errorf("Failed to process executable ELF binary")
 	}
 	if strings.Contains(actual, "Processed: readme.txt") {
 		t.Errorf("Incorrectly processed a non-executable .txt file")
+	}
+	if strings.Contains(actual, "Processed: media_provider_script") {
+		t.Errorf("Regression: Incorrectly processed an executable non-ELF script")
 	}
 }

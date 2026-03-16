@@ -246,11 +246,15 @@ var (
 		Command2: blueprint.NewCommand(
 			android.Rm, ` -rf ${out}.image && `, android.Mkdir, ` -p ${out}.image && `,
 			android.ZipSync, ` -d ${out}.image ${image_zip} && `,
-			gen_apex_symbols, ` ndk_usedby ${out}.image ${readelf} ${out} && `,
+			gen_apex_symbols, ` ndk_usedby ${out}.image ${config.ClangBin}/llvm-readelf `, android.ZipSync, ` ${out} && `,
 			android.Rm, ` -rf ${out}.image`,
 		),
+		CommandDeps: []string{
+			"${config.ClangBin}/llvm-readelf",
+			"${config.ClangBin}/llvm-readobj",
+		},
 		Description: "Generate symbol list used by Apex",
-	}, "image_zip", "readelf")
+	}, "image_zip")
 
 	apexSepolicyTestsRule = pctx.StaticRule("apexSepolicyTestsRule", blueprint.RuleParams{
 		Command2: blueprint.NewCommand(
@@ -1002,7 +1006,6 @@ func (a *apexBundle) buildApex(ctx android.ModuleContext) {
 		Output:      apisUsedbyOutputFile,
 		Args: map[string]string{
 			"image_zip": imageZipOut.String(),
-			"readelf":   "${config.ClangBin}/llvm-readelf",
 		},
 	})
 
