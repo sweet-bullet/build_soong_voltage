@@ -80,7 +80,6 @@ func init() {
 	pctx.HostBinToolVariable("deapexer", "deapexer")
 	pctx.HostBinToolVariable("debugfs", "debugfs")
 	pctx.HostBinToolVariable("fsck_erofs", "fsck.erofs")
-	pctx.SourcePathVariable("genNdkUsedbyApexPath", "build/soong/scripts/gen_ndk_usedby_apex.sh")
 	pctx.HostBinToolVariable("conv_linker_config", "conv_linker_config")
 	pctx.HostBinToolVariable("apex_elf_checker", "apex_elf_checker")
 	pctx.HostBinToolVariable("aconfig", "aconfig")
@@ -126,6 +125,7 @@ var (
 	conv_apex_manifest             = pctx.HostTool("conv_apex_manifest")
 	conv_linker_config             = pctx.HostTool("conv_linker_config")
 	extract_apks                   = pctx.HostTool("extract_apks")
+	gen_apex_symbols               = pctx.HostTool("gen_apex_symbols")
 
 	apexManifestRule = pctx.StaticRule("apexManifestRule", blueprint.RuleParams{
 		Command2: blueprint.NewCommand(
@@ -246,10 +246,9 @@ var (
 		Command2: blueprint.NewCommand(
 			android.Rm, ` -rf ${out}.image && `, android.Mkdir, ` -p ${out}.image && `,
 			android.ZipSync, ` -d ${out}.image ${image_zip} && `,
-			`$genNdkUsedbyApexPath ${out}.image ${readelf} ${out} && `,
+			gen_apex_symbols, ` ndk_usedby ${out}.image ${readelf} ${out} && `,
 			android.Rm, ` -rf ${out}.image`,
 		),
-		CommandDeps: []string{"${genNdkUsedbyApexPath}"},
 		Description: "Generate symbol list used by Apex",
 	}, "image_zip", "readelf")
 
@@ -1016,7 +1015,8 @@ func (a *apexBundle) buildApex(ctx android.ModuleContext) {
 	apisBackedbyOutputFile := android.PathForModuleOut(ctx, a.Name()+"_backing.txt")
 	rb := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
 	rb.Command().
-		Tool(android.PathForSource(ctx, "build/soong/scripts/gen_ndk_backedby_apex.sh")).
+		BuiltTool("gen_apex_symbols").
+		Text("ndk_backedby").
 		Output(apisBackedbyOutputFile).
 		Flags(nativeLibNames)
 	rb.Build("ndk_backedby_list", "Generate API libraries backed by Apex")
@@ -1030,7 +1030,8 @@ func (a *apexBundle) buildApex(ctx android.ModuleContext) {
 	javaApiUsedbyOutputFile := android.PathForModuleOut(ctx, a.Name()+"_using.xml")
 	javaUsedByRule := android.NewRuleBuilder(pctx, ctx).SandboxDisabled()
 	javaUsedByRule.Command().
-		Tool(android.PathForSource(ctx, "build/soong/scripts/gen_java_usedby_apex.sh")).
+		BuiltTool("gen_apex_symbols").
+		Text("java_usedby").
 		BuiltTool("dexdeps").
 		Output(javaApiUsedbyOutputFile).
 		Inputs(javaLibOrApkPath)
