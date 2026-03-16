@@ -50,17 +50,20 @@ type SoongApiModuleRecord struct {
 	Path string `json:"path"`
 
 	// Target / Variation Info
-	Os   string `json:"os,omitempty"`
-	Arch string `json:"arch,omitempty"`
+	Os            string `json:"os,omitempty"`
+	Arch          string `json:"arch,omitempty"`
+	IsPrimaryArch bool   `json:"is_primary_arch"`
+	Variant       string `json:"variant,omitempty"`
 
 	// Status
 	Enabled bool `json:"enabled"`
 
 	// Artifacts
-	TrendyTeamId string   `json:"trendy_team_id,omitempty"`
-	InstallFiles []string `json:"install_files,omitempty"`
-	BuiltFiles   []string `json:"built_files,omitempty"`
-	Licenses     []string `json:"license,omitempty"`
+	TrendyTeamId                     string   `json:"trendy_team_id,omitempty"`
+	InstallFiles                     []string `json:"install_files,omitempty"`
+	BuiltFiles                       []string `json:"built_files,omitempty"`
+	Licenses                         []string `json:"license,omitempty"`
+	PackageDefaultApplicableLicenses []string `json:"package_default_applicable_licenses,omitempty"` // module_type=package
 
 	// Test related
 	TestOnly       bool `json:"test_only,omitempty"`
@@ -99,10 +102,16 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 		}
 
 		record := SoongApiModuleRecord{
-			Name:    ctx.ModuleName(m),
-			Type:    ctx.ModuleType(m),
-			Path:    ctx.ModuleDir(m),
-			Enabled: commonInfo.Enabled,
+			Name:          ctx.ModuleName(m),
+			Type:          ctx.ModuleType(m),
+			Path:          ctx.ModuleDir(m),
+			Enabled:       commonInfo.Enabled,
+			Variant:       ctx.ModuleSubDir(m),
+			IsPrimaryArch: ctx.IsPrimaryModule(m),
+		}
+
+		if record.Type == "package" && commonInfo.PackageInfo != nil {
+			record.PackageDefaultApplicableLicenses = commonInfo.PackageInfo.PrimaryLicenses
 		}
 
 		// Extract OS / Arch
