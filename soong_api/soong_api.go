@@ -65,6 +65,8 @@ type SoongApiModuleRecord struct {
 	BuiltFiles                       []string `json:"built_files,omitempty"`
 	Licenses                         []string `json:"license,omitempty"`
 	PackageDefaultApplicableLicenses []string `json:"package_default_applicable_licenses,omitempty"` // module_type=package
+	LicenseKindConditions            []string `json:"license_kind_conditions,omitempty"`
+	LicenseKindUrl                   string   `json:"license_kind_url,omitempty"`
 
 	// Test related
 	TestOnly       bool `json:"test_only,omitempty"`
@@ -140,6 +142,11 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 
 		if commonInfo.Licenses != nil {
 			record.Licenses = commonInfo.Licenses.Licenses
+		}
+
+		if kindInfo, ok := android.OtherModuleProvider(ctx, m, android.LicenseKindInfoProvider); ok {
+			record.LicenseKindConditions = kindInfo.Conditions
+			record.LicenseKindUrl = kindInfo.Url
 		}
 
 		if _, ok := android.OtherModuleProvider(ctx, m, java.JavaInfoProvider); ok {

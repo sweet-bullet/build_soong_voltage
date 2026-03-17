@@ -4410,18 +4410,24 @@ func (r LicenseKindInfo) Encode(ctx gobtools.EncContext, buf *bytes.Buffer) erro
 			}
 		}
 	}
+
+	if err = gobtools.EncodeString(buf, r.Url); err != nil {
+		return err
+	}
 	return err
 }
 
 func (r LicenseKindInfo) CustomHash(hasher *proptools.Hasher) error {
 	hasher.WriteString(":android.LicenseKindInfo")
-	hasher.WriteInt(1)
+	hasher.WriteInt(2)
 	hasher.WriteString(":.[]string")
 	hasher.WriteInt(len(r.Conditions))
 	for val1 := 0; val1 < len(r.Conditions); val1++ {
 		hasher.WriteString(":.string")
 		hasher.WriteString(r.Conditions[val1])
 	}
+	hasher.WriteString(":.string")
+	hasher.WriteString(r.Url)
 	return nil
 }
 
@@ -4441,6 +4447,11 @@ func (r *LicenseKindInfo) Decode(ctx gobtools.EncContext, buf *bytes.Reader) err
 				return err
 			}
 		}
+	}
+
+	err = gobtools.DecodeString(buf, &r.Url)
+	if err != nil {
+		return err
 	}
 
 	return err
