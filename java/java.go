@@ -227,15 +227,6 @@ var (
 			PropertyName: "java_tests",
 		},
 	}
-
-	// Rule for generating device binary default wrapper
-	deviceBinaryWrapper = pctx.StaticRule("deviceBinaryWrapper", blueprint.RuleParams{
-		Command: `printf '#!/system/bin/sh\n` +
-			`export CLASSPATH=/system/framework/$jar_name\n` +
-			`exec app_process /$partition/bin $main_class "$$@"\n'> ${out}`,
-		Description:     "Generating device binary wrapper ${jar_name}",
-		SandboxDisabled: true,
-	}, "jar_name", "partition", "main_class")
 )
 
 // @auto-generate: gob
@@ -2371,15 +2362,12 @@ func (j *Binary) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 				wrapper := android.PathForModuleOut(ctx, ctx.ModuleName()+".sh")
 				jarName := j.Stem() + ".jar"
 				partition := j.PartitionTag(ctx.DeviceConfig())
-				ctx.Build(pctx, android.BuildParams{
-					Rule:   deviceBinaryWrapper,
-					Output: wrapper,
-					Args: map[string]string{
-						"jar_name":   jarName,
-						"partition":  partition,
-						"main_class": String(j.binaryProperties.Main_class),
-					},
-				})
+				mainClass := String(j.binaryProperties.Main_class)
+				content := fmt.Sprintf("#!/system/bin/sh\n"+
+					"export CLASSPATH=/system/framework/%s\n"+
+					"exec app_process /%s/bin %s \"$@\"\n",
+					jarName, partition, mainClass)
+				android.WriteFileRule(ctx, wrapper, content)
 				j.wrapperFile = wrapper
 			}
 		} else {
