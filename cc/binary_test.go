@@ -112,8 +112,8 @@ func TestBinaryLibs(t *testing.T) {
 				if strings.HasSuffix(dep.Base(), ".so.toc") {
 					binFooSharedLibs = append(binFooSharedLibs, strings.TrimSuffix(dep.Base(), ".so.toc"))
 				}
-				if strings.HasSuffix(dep.Base(), ".dylib") {
-					binFooSharedLibs = append(binFooSharedLibs, strings.TrimSuffix(dep.Base(), ".dylib"))
+				if strings.HasSuffix(dep.Base(), ".dylib.toc") {
+					binFooSharedLibs = append(binFooSharedLibs, strings.TrimSuffix(dep.Base(), ".dylib.toc"))
 				}
 				if strings.HasSuffix(dep.Base(), ".a") {
 					binFooStaticLibs = append(binFooStaticLibs, strings.TrimSuffix(dep.Base(), ".a"))
