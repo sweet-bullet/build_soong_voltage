@@ -1386,21 +1386,15 @@ func (j *Module) compile(ctx android.ModuleContext) *JavaInfo {
 			j.extraCombinedJars, manifest)
 
 		combinedHeaderJarFile, jarjared := j.jarjarIfNecessary(ctx, preJarjarHeaderJarFile, jarName, "turbine", false)
-		combinedHeaderJarFile, _ = j.repackageFlagsIfNecessary(ctx, combinedHeaderJarFile, jarName, "repackage-turbine")
 		if jarjared {
 			localHeaderJars = android.Paths{combinedHeaderJarFile}
 			transitiveStaticLibsHeaderJars = nil
-		} else {
-			// Repackaging rules (from jarjar_prefix) are strictly renames, making it safe
-			// to process on individual thin jars without pruning or atomicity conflicts
-			// (unlike explicit `jarjar_rules` which can contain `keep`/`zap` rules).
-			for i, jar := range localHeaderJars {
-				distinctName := strings.TrimSuffix(jarName, ".jar") + "." + strconv.Itoa(i) + ".jar"
-				repackagedJar, _ := j.repackageFlagsIfNecessary(ctx, jar, distinctName, "repackage-turbine")
-				localHeaderJars[i] = repackagedJar
-			}
 		}
-
+		combinedHeaderJarFile, repackaged := j.repackageFlagsIfNecessary(ctx, combinedHeaderJarFile, jarName, "repackage-turbine")
+		if repackaged {
+			localHeaderJars = android.Paths{combinedHeaderJarFile}
+			transitiveStaticLibsHeaderJars = nil
+		}
 		if ctx.Failed() {
 			return nil
 		}
@@ -1690,22 +1684,15 @@ func (j *Module) compile(ctx android.ModuleContext) *JavaInfo {
 			localHeaderJars = android.Paths{j.headerJarFile}
 			transitiveStaticLibsHeaderJars = nil
 		}
-		repackagedHeaderJarFile, _ = j.repackageFlagsIfNecessary(ctx, j.headerJarFile, jarName, "turbine")
-		updatedLocalHeaderJars := android.Paths{}
-		// Repackaging rules (from jarjar_prefix) are strictly renames, making it safe
-		// to process on individual thin jars without pruning or atomicity conflicts
-		// (unlike explicit `jarjar_rules` which can contain `keep`/`zap` rules).
-		for i, jar := range localHeaderJars {
+		var repackaged bool
+		repackagedHeaderJarFile, repackaged = j.repackageFlagsIfNecessary(ctx, j.headerJarFile, jarName, "turbine")
+		if repackaged {
+			// repackage modifies transitive static dependencies, use the combined header jar and drop the transitive
+			// static libs header jars.
 			// TODO(b/356688296): this shouldn't export both the unmodified and repackaged header jars
-			distinctName := strings.TrimSuffix(jarName, ".jar") + "." + strconv.Itoa(i) + ".jar"
-			repackagedJar, repackaged := j.repackageFlagsIfNecessary(ctx, jar, distinctName, "repackage-turbine")
-			if repackaged {
-				updatedLocalHeaderJars = append(updatedLocalHeaderJars, jar, repackagedJar)
-			} else {
-				updatedLocalHeaderJars = append(updatedLocalHeaderJars, jar)
-			}
+			localHeaderJars = android.Paths{j.headerJarFile, repackagedHeaderJarFile}
+			transitiveStaticLibsHeaderJars = nil
 		}
-		localHeaderJars = updatedLocalHeaderJars
 	}
 	if len(uniqueJavaFiles) > 0 || len(srcJars) > 0 {
 		// turbine is disabled when API generating APs are present, in which case,
