@@ -27,6 +27,10 @@ func (p *productConfigModule) UseGenericConfig() bool {
 	return false
 }
 
+func (p *productConfigModule) DepsMutator(ctx BottomUpMutatorContext) {
+	ctx.AddHostToolDependencies("merge_json")
+}
+
 func (p *productConfigModule) GenerateAndroidBuildActions(ctx ModuleContext) {
 	if ctx.ModuleName() != "product_config" || ctx.ModuleDir() != "build/soong" {
 		ctx.ModuleErrorf("There can only be one product_config module in build/soong")
@@ -44,12 +48,12 @@ func (p *productConfigModule) GenerateAndroidBuildActions(ctx ModuleContext) {
 	soongVariablesPath := PathForOutput(ctx, "soong."+targetProduct+coverageSuffix+"variables")
 	extraVariablesPath := PathForOutput(ctx, "soong."+targetProduct+coverageSuffix+"extra.variables")
 
-	rule := NewRuleBuilder(pctx, ctx).SandboxDisabled()
+	rule := NewRuleBuilder(pctx, ctx)
 	rule.Command().BuiltTool("merge_json").
 		Output(outputFilePath).
 		Input(soongVariablesPath).
-		Input(extraVariablesPath).
-		rule.Build("product_config.json", "building product_config.json")
+		Input(extraVariablesPath)
+	rule.Build("product_config.json", "building product_config.json")
 
 	ctx.SetOutputFiles(Paths{outputFilePath}, "")
 }
