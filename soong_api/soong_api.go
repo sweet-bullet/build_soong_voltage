@@ -43,8 +43,9 @@ var soongApiPctx = android.NewPackageContext("android/soong/android/soong_api")
 // rather than a functional Soong module object.
 type SoongApiModuleRecord struct {
 	// Identity
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name     string `json:"name"`
+	Type     string `json:"type"`
+	BaseType string `json:"base_type,omitempty"`
 
 	// Location
 	Path string `json:"path"`
@@ -108,6 +109,10 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 			Enabled:       commonInfo.Enabled,
 			Variant:       ctx.ModuleSubDir(m),
 			IsPrimaryArch: ctx.IsPrimaryModule(m),
+		}
+
+		if commonInfo.BaseModuleType != "" {
+			record.BaseType = commonInfo.BaseModuleType
 		}
 
 		if record.Type == "package" && commonInfo.PackageInfo != nil {
