@@ -57,7 +57,7 @@ type SoongApiModuleRecord struct {
 	Variant       string `json:"variant,omitempty"`
 
 	// Status
-	Enabled bool `json:"enabled"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// Artifacts
 	TrendyTeamId                     string   `json:"trendy_team_id,omitempty"`
@@ -106,9 +106,12 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 			Name:          ctx.ModuleName(m),
 			Type:          ctx.ModuleType(m),
 			Path:          ctx.ModuleDir(m),
-			Enabled:       commonInfo.Enabled,
 			Variant:       ctx.ModuleSubDir(m),
 			IsPrimaryArch: ctx.IsPrimaryModule(m),
+		}
+
+		if !commonInfo.Enabled {
+			record.Enabled = proptools.BoolPtr(false)
 		}
 
 		if commonInfo.BaseModuleType != "" {
