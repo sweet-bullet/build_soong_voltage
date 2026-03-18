@@ -524,7 +524,11 @@ func (compiler *baseCompiler) compilerFlags(ctx ModuleContext, flags Flags, deps
 		// compatibility issues when pushed to hardware which does not support these instructions.
 		// Similarly, enabling stack-protector alongside PAC/BTI does not present any compatibility
 		// issues.
-		if ctx.Arch().ArchType == android.Arm64 {
+		//
+		// LFI has a minimal libc that does not include __stack_chk_fail so it cannot use
+		// '-fstack-protector'. We already forced the LFI target to enable PAC/BTI for all LFI
+		// modules.
+		if ctx.Arch().ArchType == android.Arm64 && !ctx.Target().LFI {
 			// Some of these flags are intentionally duplicated from globals as some
 			// targets disable them. Duplicating them here ensures that no matter the
 			// build target for APEXes, these flags are enabled.
