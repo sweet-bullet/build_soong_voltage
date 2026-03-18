@@ -241,3 +241,41 @@ func TestJarGenruleCombinerMulti(t *testing.T) {
 		}
 	}
 }
+
+func TestJarGenruleCombinerKotlinSnapshot(t *testing.T) {
+	t.Parallel()
+	t.Helper()
+	ctx := prepareForJavaTest.RunTestWithBp(t, `
+		java_library {
+			name: "foo",
+			srcs: ["a.kt"],
+		}
+
+		java_genrule_combiner {
+			name: "jarcomb",
+			static_libs: ["foo"],
+			headers: ["foo"],
+		}
+	`).TestContext
+
+	fooMod := ctx.ModuleForTests(t, "foo", "android_common")
+	fooInfo, _ := android.OtherModuleProvider(ctx.OtherModuleProviderAdaptor(), fooMod.Module(), JavaInfoProvider)
+	jarcombMod := ctx.ModuleForTests(t, "jarcomb", "android_common")
+	jarcombInfo, _ := android.OtherModuleProvider(ctx.OtherModuleProviderAdaptor(), jarcombMod.Module(), JavaInfoProvider)
+
+	if len(fooInfo.KSnapshotFiles) == 0 {
+		t.Errorf("foo KSnapshotFiles is empty, expected Kotlin snapshots to be generated")
+	}
+
+	if len(jarcombInfo.KSnapshotFiles) == 0 {
+		t.Errorf("jarcomb KSnapshotFiles is empty")
+	}
+
+	// Verify that the genrule_combiner correctly inherits (copies) all Kotlin Snapshots
+	// from its dependencies to propagate them downstream.
+	for k, v := range fooInfo.KSnapshotFiles {
+		if val, ok := jarcombInfo.KSnapshotFiles[k]; !ok || val != v {
+			t.Errorf("jarcomb KSnapshotFiles[%s] = %v; want %v", k, val, v)
+		}
+	}
+}

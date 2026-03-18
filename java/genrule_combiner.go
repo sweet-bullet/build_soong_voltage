@@ -87,6 +87,7 @@ func (j *GenruleCombiner) GenerateAndroidBuildActions(ctx android.ModuleContext)
 	var transitiveImplementationJars []depset.DepSet[android.Path]
 	var transitiveResourceJars []depset.DepSet[android.Path]
 	var sdkVersion android.SdkSpec
+	kSnapshotFiles := make(map[string]android.Path)
 	var stubsLinkType StubsLinkType
 	moduleWithSdkDepInfo := &ModuleWithSdkDepInfo{}
 
@@ -104,6 +105,9 @@ func (j *GenruleCombiner) GenerateAndroidBuildActions(ctx android.ModuleContext)
 			*moduleWithSdkDepInfo = *dep.ModuleWithSdkDepInfo
 
 			transitiveHeaderJars = append(transitiveHeaderJars, dep.TransitiveStaticLibsHeaderJars)
+			for k, v := range dep.KSnapshotFiles {
+				kSnapshotFiles[k] = v
+			}
 		} else if dep, ok := android.OtherModuleProvider(ctx, m, android.CodegenInfoProvider); ok {
 			j.aconfigProtoFiles = append(j.aconfigProtoFiles, dep.IntermediateCacheOutputPaths...)
 		} else {
@@ -119,6 +123,9 @@ func (j *GenruleCombiner) GenerateAndroidBuildActions(ctx android.ModuleContext)
 			transitiveImplementationJars = append(transitiveImplementationJars, dep.TransitiveStaticLibsImplementationJars)
 			transitiveResourceJars = append(transitiveResourceJars, dep.TransitiveStaticLibsResourceJars)
 			j.aconfigProtoFiles = append(j.aconfigProtoFiles, dep.AconfigIntermediateCacheOutputPaths...)
+			for k, v := range dep.KSnapshotFiles {
+				kSnapshotFiles[k] = v
+			}
 		} else if dep := android.GetOutputFiles(ctx, m); dep != nil {
 			// This is provided by `java_genrule` modules.
 			j.implementationJars = append(j.implementationJars, dep.DefaultOutputFiles...)
@@ -167,6 +174,7 @@ func (j *GenruleCombiner) GenerateAndroidBuildActions(ctx android.ModuleContext)
 		SrcJarDeps:                             j.srcJarDeps,
 		StubsLinkType:                          stubsLinkType,
 		AconfigIntermediateCacheOutputPaths:    j.aconfigProtoFiles,
+		KSnapshotFiles:                         kSnapshotFiles,
 	}
 	setExtraJavaInfo(ctx, j, javaInfo)
 	ctx.SetOutputFiles(android.Paths{javaInfo.OutputFile}, "")
