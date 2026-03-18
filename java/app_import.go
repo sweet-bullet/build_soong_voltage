@@ -39,28 +39,30 @@ func init() {
 
 var (
 	uncompressEmbeddedJniLibsRule = pctx.AndroidStaticRule("uncompress-embedded-jni-libs", blueprint.RuleParams{
-		Command: `if (zipinfo $in 'lib/*.so' 2>/dev/null | grep -v ' stor ' >/dev/null) ; then ` +
-			`${config.Zip2ZipCmd} -i $in -o $out -0 'lib/**/*.so'` +
-			`; else cp -f $in $out; fi`,
-		CommandDeps:     []string{"${config.Zip2ZipCmd}"},
-		Description:     "Uncompress embedded JNI libs",
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			`if (`, android.ZipInfo, ` $in 'lib/*.so' 2>/dev/null | `,
+			android.Grep, ` -v ' stor ' >/dev/null) ; then `,
+			android.Zip2zip, ` -i $in -o $out -0 'lib/**/*.so'`,
+			`; else `, android.Cp, ` -f $in $out; fi`,
+		),
+		Description: "Uncompress embedded JNI libs",
 	})
 
 	stripEmbeddedJniLibsUnusedArchRule = pctx.AndroidStaticRule("strip-embedded-jni-libs-from-unused-arch", blueprint.RuleParams{
-		Command:         `${config.Zip2ZipCmd} -i $in -o $out -x 'lib/**/*.so' $extraArgs`,
-		CommandDeps:     []string{"${config.Zip2ZipCmd}"},
-		Description:     "Remove all JNI libs from unused architectures",
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			android.Zip2zip, ` -i $in -o $out -x 'lib/**/*.so' $extraArgs`,
+		),
+		Description: "Remove all JNI libs from unused architectures",
 	}, "extraArgs")
 
 	uncompressDexRule = pctx.AndroidStaticRule("uncompress-dex", blueprint.RuleParams{
-		Command: `if (zipinfo $in '*.dex' 2>/dev/null | grep -v ' stor ' >/dev/null) ; then ` +
-			`${config.Zip2ZipCmd} -i $in -o $out -0 'classes*.dex'` +
-			`; else cp -f $in $out; fi`,
-		CommandDeps:     []string{"${config.Zip2ZipCmd}"},
-		Description:     "Uncompress dex files",
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			`if (`, android.ZipInfo, ` $in '*.dex' 2>/dev/null | `,
+			android.Grep, ` -v ' stor ' >/dev/null) ; then `,
+			android.Zip2zip, ` -i $in -o $out -0 'classes*.dex'`,
+			`; else `, android.Cp, ` -f $in $out; fi`,
+		),
+		Description: "Uncompress dex files",
 	})
 
 	checkPresignedApkRule = pctx.AndroidStaticRule("check-presigned-apk", blueprint.RuleParams{
@@ -71,17 +73,20 @@ var (
 	}, "extraArgs")
 
 	extractApkRule = pctx.AndroidStaticRule("extract-apk", blueprint.RuleParams{
-		Command:         "unzip -p $in $extract_apk > $out",
-		Description:     "Extract specific sub apk",
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			android.ZipSync, ` -d $out.tmpdir $in && `,
+			android.Cp, ` $out.tmpdir/$extract_apk $out && `,
+			android.Rm, ` -rf $out.tmpdir`,
+		),
+		Description: "Extract specific sub apk",
 	}, "extract_apk")
 
 	gzipRule = pctx.AndroidStaticRule("gzip",
 		blueprint.RuleParams{
-			Command:         "prebuilts/build-tools/path/linux-x86/gzip -9 -c $in > $out",
-			CommandDeps:     []string{"prebuilts/build-tools/path/linux-x86/gzip"},
-			Description:     "gzip $out",
-			SandboxDisabled: true,
+			Command2: blueprint.NewCommand(
+				android.Gzip, ` -9 -c $in > $out`,
+			),
+			Description: "gzip $out",
 		})
 )
 

@@ -286,6 +286,7 @@ var (
 	MergeZips       = pctx.HostTool("merge_zips")
 	ZipSync         = pctx.HostTool("zipsync")
 	CpIfChanged     = pctx.HostTool("cp_if_changed")
+	Zip2zip         = pctx.HostTool("zip2zip")
 
 	// prebuiltSymlinkHostTool returns a function that resolves a host tool symlink
 	// and its underlying real binary, ensuring both are added to the Ninja dependencies.
@@ -303,6 +304,7 @@ var (
 
 	Awk     = pctx.HostToolFunc(prebuiltSymlinkHostTool("awk", "one-true-awk"))
 	Python3 = pctx.HostToolFunc(prebuiltSymlinkHostTool("python3", "py3-cmd"))
+	ZipInfo = pctx.HostToolFunc(prebuiltSymlinkHostTool("zipinfo", "ziptool"))
 )
 
 var commonToyboxSymlinks = map[string]struct{}{
