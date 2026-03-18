@@ -1,1 +1,1 @@
-per-file clang.go,global.go,tidy.go =pirama@google.com, yabinc@google.com, yikong@google.com, sharjeelkhan@google.com
+per-file clang.go,global.go,tidy.go =pirama@google.com, yabinc@google.com, yikong@google.com, sharjeelkhan@google.com, venk@google.com, ndesaulniers@google.com
