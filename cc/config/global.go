@@ -334,6 +334,7 @@ var (
 		"-Wno-error=uninitialized-const-pointer", // http://b/458489157
 		// New warnings to be fixed after clang-r596125
 		"-Wno-incompatible-pointer-types", // http://b/490481169
+		"-Wno-c2y-extensions",             // http://b/493691159
 
 		// Allow using VLA CXX extension.
 		"-Wno-vla-cxx-extension",
