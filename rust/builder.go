@@ -35,12 +35,12 @@ var (
 
 	rustc, rustcRbe = pctx.RemoteStaticRules("rustc",
 		blueprint.RuleParams{
-			Command: "$relPwd $reTemplate/usr/bin/env -i TMPDIR=\"$$TMPDIR\" $envVars ${RustcWrapper} ${rustcCmd} " +
+			Command: "$relPwd $reTemplate ${SoongEnvCmd} -i --allow TMPDIR $envVars ${RustcWrapper} ${rustcCmd} " +
 				"-C linker=${RustcLinkerCmd} -C link-args=\"--android-clang-bin=${config.ClangCmd} ${linkerScriptFlags}\" " +
 				"-C link-args=@${out}.clang.rsp " +
 				"--emit ${emitType} -o $out --emit dep-info=$out.d.raw $in ${libFlags} $rustcFlags" +
 				" && ${DepfileVerifier} --check-suffix-only $out.d ${soongSrcsFile}",
-			CommandDeps:    []string{"$rustcCmd", "${RustcLinkerCmd}", "${config.ClangCmd}", "${DepfileVerifier}", "${RustcWrapper}"},
+			CommandDeps:    []string{"$rustcCmd", "${RustcLinkerCmd}", "${config.ClangCmd}", "${DepfileVerifier}", "${RustcWrapper}", "${SoongEnvCmd}"},
 			Rspfile:        "${out}.clang.rsp",
 			RspfileContent: "${crtBegin} ${earlyLinkFlags} ${linkFlags} ${crtEnd}",
 		}, &remoteexec.REParams{
@@ -59,6 +59,7 @@ var (
 				"${config.LlvmDlltool}",
 				"${DepfileVerifier}",
 				"${RustcWrapper}",
+				"${SoongEnvCmd}",
 			},
 			Platform: map[string]string{remoteexec.PoolKey: "${config.RERustPool}"},
 		},
@@ -116,6 +117,7 @@ func init() {
 	pctx.HostBinToolVariable("SoongZipCmd", "soong_zip")
 	pctx.HostBinToolVariable("RustcLinkerCmd", "rustc_linker")
 	pctx.HostBinToolVariable("RustcWrapper", "rustc_wrapper")
+	pctx.HostBinToolVariable("SoongEnvCmd", "soong_env")
 	pctx.HostBinToolVariable("DepfileVerifier", "depfile_verifier")
 	pctx.StaticVariable("relPwd", cc.PwdPrefix())
 
