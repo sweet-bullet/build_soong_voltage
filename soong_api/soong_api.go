@@ -64,6 +64,9 @@ type SoongApiModuleRecord struct {
 	InstallFiles                     []string `json:"install_files,omitempty"`
 	BuiltFiles                       []string `json:"built_files,omitempty"`
 	Licenses                         []string `json:"license,omitempty"`
+	LicenseKinds                     []string `json:"license_kinds,omitempty"`
+	LicenseText                      []string `json:"license_text,omitempty"`
+	LicensePackageName               string   `json:"license_package_name,omitempty"`
 	PackageDefaultApplicableLicenses []string `json:"package_default_applicable_licenses,omitempty"` // module_type=package
 	LicenseKindConditions            []string `json:"license_kind_conditions,omitempty"`
 	LicenseKindUrl                   string   `json:"license_kind_url,omitempty"`
@@ -118,6 +121,12 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 
 		if commonInfo.BaseModuleType != "" {
 			record.BaseType = commonInfo.BaseModuleType
+		}
+
+		if licInfo, ok := android.OtherModuleProvider(ctx, m, android.LicenseInfoProvider); ok {
+			record.LicensePackageName = proptools.String(licInfo.PackageName)
+			record.LicenseKinds = licInfo.EffectiveLicenseKinds
+			record.LicenseText = licInfo.EffectiveLicenseText.Strings()
 		}
 
 		if record.Type == "package" && commonInfo.PackageInfo != nil {
