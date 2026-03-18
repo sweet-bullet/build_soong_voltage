@@ -917,6 +917,7 @@ func buildConfig(config Config) *smpb.BuildConfig {
 	ensure().SoongNinja = proto.String(config.ninjaCommand.String())
 	c := &smpb.BuildConfig{
 		UseRbe:                       proto.Bool(config.UseRBE()),
+		UseRewrapper:                 proto.Bool(config.UseRewrapper()),
 		NinjaWeightListSource:        getNinjaWeightListSourceInMetric(config.NinjaWeightListSource()),
 		SoongEnvVars:                 soongEnvVars,
 		SoongOnly:                    proto.Bool(config.soongOnlyRequested),
