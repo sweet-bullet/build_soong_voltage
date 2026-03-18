@@ -26,13 +26,16 @@ import (
 //
 // statusFormat takes nearly all the same options as NINJA_STATUS.
 // %c is currently unsupported.
-func NewStatusOutput(w io.Writer, statusFormat string, forceSimpleOutput, quietBuild, forceKeepANSI bool, skipActionProgress bool) status.StatusOutput {
+func NewStatusOutput(w io.Writer, statusFormat string, forceSimpleOutput, quietBuild,
+	forceKeepANSI bool, skipActionProgress bool, suppressOutput bool) status.StatusOutput {
+
 	canUseSmartFormatting := !forceSimpleOutput && isSmartTerminal(w)
 	formatter := newFormatter(canUseSmartFormatting, statusFormat, quietBuild)
 
 	if canUseSmartFormatting {
-		return NewSmartStatusOutput(w, formatter)
+		return NewSmartStatusOutput(w, formatter, suppressOutput)
 	} else {
-		return NewSimpleStatusOutput(w, formatter, forceKeepANSI, skipActionProgress)
+		return NewSimpleStatusOutput(w, formatter, forceKeepANSI, skipActionProgress,
+			suppressOutput)
 	}
 }

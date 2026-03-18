@@ -36,8 +36,9 @@ type actionTableEntry struct {
 }
 
 type smartStatusOutput struct {
-	writer    io.Writer
-	formatter formatter
+	writer         io.Writer
+	formatter      formatter
+	suppressOutput bool
 
 	lock sync.Mutex
 
@@ -65,10 +66,13 @@ type smartStatusOutput struct {
 // NewSmartStatusOutput returns a StatusOutput that represents the
 // current build status similarly to Ninja's built-in terminal
 // output.
-func NewSmartStatusOutput(w io.Writer, formatter formatter) status.StatusOutput {
+func NewSmartStatusOutput(w io.Writer,
+	formatter formatter,
+	suppressOutput bool) status.StatusOutput {
 	s := &smartStatusOutput{
-		writer:    w,
-		formatter: formatter,
+		writer:         w,
+		formatter:      formatter,
+		suppressOutput: suppressOutput,
 
 		haveBlankLine: true,
 
@@ -176,7 +180,7 @@ func (s *smartStatusOutput) FinishAction(result status.ActionResult, counts stat
 
 	// Stop printing when there are failures, but don't skip actions that also have their own errors.
 	if output != "" {
-		if !s.haveFailures || result.Error != nil {
+		if (!s.haveFailures && !s.suppressOutput) || result.Error != nil {
 			s.requestLine()
 			s.print(output)
 		} else {
