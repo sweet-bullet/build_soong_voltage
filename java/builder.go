@@ -255,7 +255,7 @@ var (
 			},
 			CommandOrderOnly: []string{"${config.SoongJavacWrapper}"},
 			Rspfile:          "$out.rsp",
-			RspfileContent:   "$classpath\n$in",
+			RspfileContent:   "$classpath $in",
 			SandboxDisabled:  true,
 		},
 		"javacFlags", "bootClasspath", "classpath", "processorpath", "processor", "srcJars", "srcJarDir",
