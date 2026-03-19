@@ -16,6 +16,7 @@ package rust
 
 import (
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -693,9 +694,17 @@ func Rustdoc(ctx ModuleContext, main android.Path, deps PathDeps,
 }
 
 func toolchainImplicitsPhony(ctx android.ModuleContext) android.Path {
+	rustPath := config.RustPath(ctx)
+	clangPath := cc_config.ClangPathNoOnce(ctx, "").String()
+
 	return ctx.CreateNinjaPhonyOnce("rustToolchainImplicits", []string{
-		filepath.Join(config.RustPath(ctx), "**/*"),
-		cc_config.ClangPathNoOnce(ctx, "lib/**/*").String(),
-		cc_config.ClangPathNoOnce(ctx, "bin/**/*").String(),
+		filepath.Join(rustPath, "lib/librustc_driver-*.so"),
+		filepath.Join(rustPath, "lib/rustlib/*/lib/**/*"),
+		filepath.Join(rustPath, "lib/libLLVM*"),
+		filepath.Join(rustPath, "lib64/*.so"),
+		filepath.Join(clangPath, "lib/clang/*/include/**/*"),
+		filepath.Join(clangPath, "lib/clang/*/lib", runtime.GOOS, "**/*"),
+		filepath.Join(clangPath, "lib/libxml2.so*"),
+		filepath.Join(clangPath, "bin/**/*"),
 	})
 }
