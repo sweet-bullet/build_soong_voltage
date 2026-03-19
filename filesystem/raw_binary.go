@@ -30,10 +30,11 @@ import (
 var (
 	toRawBinary = pctx.AndroidStaticRule("toRawBinary",
 		blueprint.RuleParams{
-			Command: "${objcopy} --output-target=binary ${in} ${out} &&" +
-				"chmod -x ${out}",
-			CommandDeps:     []string{"$objcopy"},
-			SandboxDisabled: true,
+			Command2: blueprint.NewCommand(
+				"${objcopy}", ` --output-target=binary ${in} ${out} && `,
+				android.Chmod, ` -x ${out}`,
+			),
+			CommandDeps: []string{"$objcopy"},
 		},
 		"objcopy")
 )
