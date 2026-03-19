@@ -35,7 +35,7 @@ var (
 
 	rustc, rustcRbe = pctx.RemoteStaticRules("rustc",
 		blueprint.RuleParams{
-			Command: "$relPwd $reTemplate ${SoongEnvCmd} -i --allow TMPDIR $envVars ${RustcWrapper} ${rustcCmd} " +
+			Command: "$relPwd $reTemplate ${SoongEnvCmd} -i --allow PWD --allow TMPDIR $envVars ${RustcWrapper} ${rustcCmd} " +
 				"-C linker=${RustcLinkerCmd} -C link-args=\"--android-clang-bin=${config.ClangCmd} ${linkerScriptFlags}\" " +
 				"-C link-args=@${out}.clang.rsp " +
 				"--emit ${emitType} -o $out --emit dep-info=$out.d.raw $in ${libFlags} $rustcFlags" +
