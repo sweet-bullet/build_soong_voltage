@@ -444,9 +444,9 @@ func (a *aapt) deps(ctx android.BottomUpMutatorContext, sdkDep sdkDep) {
 
 var extractAssetsRule = pctx.AndroidStaticRule("extractAssets",
 	blueprint.RuleParams{
-		Command:         `${config.Zip2ZipCmd} -i ${in} -o ${out} "assets/**/*"`,
-		CommandDeps:     []string{"${config.Zip2ZipCmd}"},
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			android.Zip2zip, ` -i ${in} -o ${out} "assets/**/*"`,
+		),
 	})
 
 type aaptBuildActionOptions struct {
@@ -1390,15 +1390,15 @@ var JniPackageProvider = blueprint.NewProvider[JniPackageInfo]()
 // Unzip an AAR and extract the JNI libs for $archString.
 var extractJNI = pctx.AndroidStaticRule("extractJNI",
 	blueprint.RuleParams{
-		Command: `rm -rf $out $outDir && touch $out && ` +
-			`unzip -qoDD -d $outDir $in "jni/${archString}/*" && ` +
-			`jni_files=$$(find $outDir/jni -type f) && ` +
+		Command2: blueprint.NewCommand(
+			android.Rm, ` -rf $out && `, android.Touch, ` $out && `,
+			android.ZipSync, ` -d $outDir $in && `,
+			`jni_files=$$(`, android.Find, ` $outDir/jni/${archString} -type f 2>/dev/null) && `,
 			// print error message if there are no JNI libs for this arch
-			`[ -n "$$jni_files" ] || (echo "ERROR: no JNI libs found for arch ${archString}" && exit 1) && ` +
-			`${config.SoongZipCmd} -o $out -L 0 -P 'lib/${archString}' ` +
-			`-C $outDir/jni/${archString} $$(echo $$jni_files | xargs -n1 printf " -f %s")`,
-		CommandDeps:     []string{"${config.SoongZipCmd}"},
-		SandboxDisabled: true,
+			`[ -n "$$jni_files" ] || (`, android.Echo, ` "ERROR: no JNI libs found for arch ${archString}" && exit 1) && `,
+			android.SoongZip, ` -o $out -L 0 -P 'lib/${archString}' `,
+			`-C $outDir/jni/${archString} $$(`, android.Echo, ` $$jni_files | `, android.Xargs, ` -n1 `, android.Printf, ` " -f %s")`,
+		),
 	},
 	"outDir", "archString")
 
@@ -1406,12 +1406,15 @@ var extractJNI = pctx.AndroidStaticRule("extractJNI",
 // touched to create an empty file. The res directory is not extracted, as it will be extracted in its own rule.
 var unzipAAR = pctx.AndroidStaticRule("unzipAAR",
 	blueprint.RuleParams{
-		Command: `rm -rf $outDir && mkdir -p $outDir && ` +
-			`unzip -qoDD -d $outDir $in && rm -rf $outDir/res && touch $out && ` +
-			`${config.Zip2ZipCmd} -i $in -o $assetsPackage 'assets/**/*' && ` +
-			`${config.MergeZipsCmd} $combinedClassesJar $$(ls $outDir/classes.jar 2> /dev/null) $$(ls $outDir/libs/*.jar 2> /dev/null)`,
-		CommandDeps:     []string{"${config.MergeZipsCmd}", "${config.Zip2ZipCmd}"},
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			android.ZipSync, ` -d $outDir $in && `,
+			android.Rm, ` -rf $outDir/res && `,
+			android.Touch, ` $out && `,
+			android.Zip2zip, ` -i $in -o $assetsPackage 'assets/**/*' && `,
+			android.MergeZips, ` $combinedClassesJar $$(`,
+			android.Ls, ` $outDir/classes.jar 2> /dev/null) $$(`,
+			android.Ls, ` $outDir/libs/*.jar 2> /dev/null)`,
+		),
 	},
 	"outDir", "combinedClassesJar", "assetsPackage")
 
