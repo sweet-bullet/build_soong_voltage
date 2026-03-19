@@ -639,6 +639,8 @@ var (
 	sdkLibTag                  = dependencyTag{name: "sdklib", runtimeLinked: true}
 	java9LibTag                = dependencyTag{name: "java9lib", runtimeLinked: true}
 	pluginTag                  = dependencyTag{name: "plugin", toolchain: true}
+	javaStrictDepsPluginTag    = dependencyTag{name: "java-strict-deps-plugin", toolchain: true}
+	kotlinStrictDepsPluginTag  = dependencyTag{name: "kotlin-strict-deps-plugin", toolchain: true}
 	errorpronePluginTag        = dependencyTag{name: "errorprone-plugin", toolchain: true}
 	exportedPluginTag          = dependencyTag{name: "exported-plugin", toolchain: true}
 	bootClasspathTag           = dependencyTag{name: "bootclasspath", runtimeLinked: true}
@@ -792,6 +794,9 @@ type deps struct {
 	// contains header jars for all static and non-static dependencies.
 	classpath classpath
 
+	// directClasspath contains just the direct dependencies (header jars) for strict deps verification.
+	directClasspath classpath
+
 	// dexClasspath is the list of jars that form the classpath for d8 and r8 rules.  It contains
 	// header jars for all non-static dependencies.  Static dependencies have already been
 	// combined into the program jar.
@@ -821,6 +826,9 @@ type deps struct {
 
 	headerJarOverride          android.OptionalPath
 	headerJarOverridePreJarjar android.OptionalPath
+
+	strictDepsPluginJars       android.Paths
+	kotlinStrictDepsPluginJars android.Paths
 
 	disableTurbine bool
 

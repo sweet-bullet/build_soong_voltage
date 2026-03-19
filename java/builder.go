@@ -490,6 +490,9 @@ type javaBuilderFlags struct {
 	// contains header jars for all static and non-static dependencies.
 	classpath classpath
 
+	// directClasspath contains just the direct dependencies (header jars) for strict deps verification.
+	directClasspath classpath
+
 	// dexClasspath is the list of jars that form the classpath for d8 and r8 rules.  It contains
 	// header jars for all non-static dependencies.  Static dependencies have already been
 	// combined into the program jar.
@@ -500,15 +503,17 @@ type javaBuilderFlags struct {
 	// are provided by systemModules.
 	java9Classpath classpath
 
-	processorPath classpath
-	processors    []string
-	systemModules *systemModules
-	aidlFlags     string
-	aidlDeps      android.Paths
-	javaVersion   javaVersion
+	processorPath   classpath
+	processors      []string
+	systemModules   *systemModules
+	aidlFlags       string
+	strictDepsLevel string
+	aidlDeps        android.Paths
+	javaVersion     javaVersion
 
 	errorProneExtraJavacFlags string
 	errorProneProcessorPath   classpath
+	strictDepsPluginJars      android.Paths
 
 	kotlincFlags                string
 	kotlincPluginFlags          string
