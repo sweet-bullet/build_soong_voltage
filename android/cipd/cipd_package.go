@@ -25,14 +25,14 @@ import (
 )
 
 func init() {
-	RegisterCipdComponents(android.InitRegistrationContext)
+	RegisterCipdPackageComponents(android.InitRegistrationContext)
 
 	pctx.VariableConfigMethod("PrebuiltOS", android.Config.PrebuiltOS)
 	pctx.SourcePathVariable("cipd", "prebuilts/cipd/${PrebuiltOS}/cipd")
 	pctx.HostBinToolVariable("soong_zip", "soong_zip")
 }
 
-func RegisterCipdComponents(ctx android.RegistrationContext) {
+func RegisterCipdPackageComponents(ctx android.RegistrationContext) {
 	ctx.RegisterModuleType("cipd_package", cipdPackageFactory)
 }
 

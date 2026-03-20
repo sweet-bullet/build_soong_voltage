@@ -36,7 +36,7 @@ func TestCipdPackagePrefix_SuffixMissing(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	ensureFile := module.Output("ensure.txt")
@@ -65,7 +65,7 @@ func TestCipdPackagePrefix_SuffixEmpty(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	ensureFile := module.Output("ensure.txt")
@@ -96,7 +96,7 @@ func TestCipdPackagePrefixAndSuffix(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 
 	module := result.ModuleForTests(t, "cipd_package1", "")
@@ -184,7 +184,7 @@ func TestCipdPackage_NoVariant(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 
 	module := result.ModuleForTests(t, "cipd_package1", "")
@@ -278,7 +278,7 @@ func TestNoMatchedSelectCase_PackageSuffix(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	ensureFile := module.Output("ensure.txt")
@@ -311,7 +311,7 @@ func TestNoMatchedSelectCase_Package_NoVariant(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	ensureFile := module.Output("ensure.txt")
@@ -343,7 +343,7 @@ func TestNoMatchedSelectCase_Version(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	ensureFile := module.Output("ensure.txt")
@@ -376,7 +376,7 @@ func TestPackageSuffixIsUnset(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	ensureFile := module.Output("ensure.txt")
@@ -408,7 +408,7 @@ func TestPackageIsUnset_NoVariant(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	ensureFile := module.Output("ensure.txt")
@@ -440,7 +440,7 @@ func TestVersionIsUnset(t *testing.T) {
 
 	result := android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	ensureFile := module.Output("ensure.txt")
@@ -475,7 +475,7 @@ func TestCipdPackage_FilesSelect(t *testing.T) {
 				},
 			}
 		}),
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).RunTestWithBp(t, bp)
 	module := result.ModuleForTests(t, "cipd_package1", "")
 	export := module.Rule("cipd_export")
@@ -531,7 +531,7 @@ func TestCipdPackage_CantMixPackageAndPackagePrefix(t *testing.T) {
 
 	android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).
 		ExtendWithErrorHandler(android.FixtureExpectsOneErrorPattern("package: cannot be specified together with package_prefix")).
 		RunTestWithBp(t, bp)
@@ -554,7 +554,7 @@ func TestCipdPackage_CantMixPackageAndPackageSuffix(t *testing.T) {
 
 	android.GroupFixturePreparers(
 		android.PrepareForTestWithAndroidBuildComponents,
-		android.FixtureRegisterWithContext(RegisterCipdComponents),
+		android.FixtureRegisterWithContext(RegisterCipdPackageComponents),
 	).
 		ExtendWithErrorHandler(android.FixtureExpectsOneErrorPattern("must not specify both package and package_suffix")).
 		RunTestWithBp(t, bp)

@@ -11,10 +11,10 @@ bootstrap_go_package {
         "soong-android",
     ],
     srcs: [
-        "cipd.go",
+        "cipd_package.go",
     ],
     testSrcs: [
-        "cipd_test.go",
+        "cipd_package_test.go",
     ],
     pluginFor: ["soong_build"],
 }
