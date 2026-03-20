@@ -454,6 +454,9 @@ func (a *AndroidTestHelperApp) GenerateAndroidBuildActions(ctx android.ModuleCon
 		addStaticAconfigProto(ctx, &a.extraResources)
 	}
 	a.generateAndroidBuildActions(ctx)
+	if ctx.Failed() {
+		return
+	}
 	ctx.SetTestModuleInfo(&android.TestModuleInformation{
 		TestOnly: true,
 	})
@@ -520,6 +523,9 @@ func (a *AndroidApp) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	a.checkAppSdkVersions(ctx)
 	a.checkEmbedJnis(ctx)
 	a.generateAndroidBuildActions(ctx)
+	if ctx.Failed() {
+		return
+	}
 	a.generateJavaUsedByApex(ctx)
 
 	var embeddedJniLibs []android.Path
@@ -1807,6 +1813,9 @@ func (a *AndroidTest) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	}
 
 	a.generateAndroidBuildActions(ctx)
+	if ctx.Failed() {
+		return
+	}
 
 	android.SetProvider(ctx, ApkCertInfoProvider, ApkCertInfo{
 		Certificate: a.Certificate(),
