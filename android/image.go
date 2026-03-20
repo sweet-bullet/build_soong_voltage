@@ -206,6 +206,10 @@ func (imageTransitionMutator) splitAll(ctx BaseModuleContext) bool {
 	if ctx.Module().SplitAllImageVariants() {
 		return true
 	}
+	// Soong benchmark builds
+	if ctx.Config().IsEnvTrue("SOONG_SPLIT_OPT_IN_VARIANTS_ON_DEMAND") {
+		return false
+	}
 	return !ctx.Config().GetBuildFlagBool("RELEASE_SOONG_IMAGE_VARIANT_ON_DEMAND")
 }
 
