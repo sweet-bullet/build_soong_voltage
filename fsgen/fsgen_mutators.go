@@ -453,7 +453,6 @@ func collectDepsMutator(mctx android.BottomUpMutatorContext) {
 		installPartition := "vendor_ramdisk"
 		if isEligibleForFsDeps(mctx) {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
-			appendDepIfAppropriate(mctx, fsGenState.fsDeps["vendor_ramdisk-debug"], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
 		}
 	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".recovery"]; ok && mctx.Module().InstallInRecovery() {
 		installPartition := "recovery"
