@@ -502,9 +502,9 @@ func (p *PackagingBase) AddDeps(ctx BottomUpMutatorContext, depTag blueprint.Dep
 		// If a shared variation exists, use that. Static variants do not provide any standalone files
 		// for packaging. Similarly, use the dylib variation of rust library if it exists as
 		// the static lib (rlib) variants are never installed.
-		if ctx.OtherModuleFarDependencyVariantExists(append(targetVariation, sharedVariation), dep) {
+		if ctx.OtherModuleDependencyVariantExists(append(targetVariation, sharedVariation), dep) {
 			targetVariation = append(targetVariation, sharedVariation)
-		} else if ctx.OtherModuleFarDependencyVariantExists(append(targetVariation, rustLibDylibVariation), dep) {
+		} else if ctx.OtherModuleDependencyVariantExists(append(targetVariation, rustLibDylibVariation), dep) {
 			targetVariation = append(targetVariation, rustLibDylibVariation)
 		}
 
@@ -520,7 +520,7 @@ func (p *PackagingBase) AddDeps(ctx BottomUpMutatorContext, depTag blueprint.Dep
 			ctx.ModuleErrorf("depType must provide an associated depTag")
 		}
 
-		ctx.AddFarVariationDependencies(targetVariation, depTagToUse, dep)
+		ctx.AddVariationDependencies(targetVariation, depTagToUse, dep)
 	}
 	for _, t := range getSupportedTargets(ctx) {
 		normalDeps, highPriorityDeps, overriddenDeps := p.getDepsForTarget(ctx, t)
