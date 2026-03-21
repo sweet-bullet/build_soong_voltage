@@ -441,12 +441,16 @@ func collectDepsMutator(mctx android.BottomUpMutatorContext) {
 
 	if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".native_bridge"]; ok {
 		installPartition := m.PartitionTag(mctx.DeviceConfig())
-		if isEligibleForFsDeps(mctx) {
+		// Native bridge is only supported for system partition modules.
+		// https://cs.android.com/android/_/android/platform/build/soong/+/d046c2afef086a35d24222b09f4d2c4914e8a2a5:android/arch.go;l=604;drc=92ac46d1fe04a94d94025554bcecc5f8cb2416ae;bpv=1;bpt=0
+		if isEligibleForFsDeps(mctx) && installPartition == "system" {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeEnabled, mctx.ModuleName())
 		}
 	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".bootstrap.native_bridge"]; ok {
 		installPartition := m.PartitionTag(mctx.DeviceConfig())
-		if isEligibleForFsDeps(mctx) {
+		// Native bridge is only supported for system partition modules.
+		// https://cs.android.com/android/_/android/platform/build/soong/+/d046c2afef086a35d24222b09f4d2c4914e8a2a5:android/arch.go;l=604;drc=92ac46d1fe04a94d94025554bcecc5f8cb2416ae;bpv=1;bpt=0
+		if isEligibleForFsDeps(mctx) && installPartition == "system" {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeEnabled, mctx.ModuleName())
 		}
 	} else if _, ok := fsGenState.depCandidatesMap[mctx.ModuleName()+".vendor_ramdisk"]; ok && mctx.Module().InstallInVendorRamdisk() {

@@ -1469,17 +1469,17 @@ func (m *ModuleBase) PartitionTag(config DeviceConfig) string {
 		if config.SystemExtPath() == "system_ext" {
 			partition = "system_ext"
 		}
-	} else if m.InstallInRamdisk() {
+	} else if m.module.InstallInRamdisk() {
 		partition = "ramdisk"
-	} else if m.InstallInVendorRamdisk() {
+	} else if m.module.InstallInVendorRamdisk() {
 		partition = "vendor_ramdisk"
-	} else if m.InstallInRecovery() {
+	} else if m.module.InstallInRecovery() {
 		partition = "recovery"
-	} else if m.InstallInVendorDlkm() {
+	} else if m.module.InstallInVendorDlkm() {
 		partition = "vendor_dlkm"
-	} else if m.InstallInDebugRamdisk() {
+	} else if m.module.InstallInDebugRamdisk() {
 		partition = "debug_ramdisk"
-	} else if m.InstallInTestHarnessRamdisk() {
+	} else if m.module.InstallInTestHarnessRamdisk() {
 		partition = "test_harness_ramdisk"
 	}
 	return partition
