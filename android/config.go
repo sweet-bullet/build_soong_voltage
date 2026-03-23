@@ -1021,6 +1021,26 @@ func (c *config) HostToolPath(ctx PathContext, tool string) Path {
 	return path
 }
 
+func (c *config) HostToolAndDepsPathsFromHostTool(ctx PathContext, tool blueprint.HostTool) Paths {
+	_, deps, _ := tool.GetValueAndDeps(ctx.Config())
+
+	getPath := func(path string) Path {
+		if relPath, err := filepath.Rel(ctx.Config().OutDir(), path); err == nil && !strings.HasPrefix(relPath, "../") {
+			return PathForArbitraryOutput(ctx, relPath)
+		}
+		if strings.HasSuffix(path, "-deps") {
+			return PathForPhony(ctx, path)
+		}
+		return PathForSource(ctx, path)
+	}
+
+	var paths Paths
+	for _, dep := range deps {
+		paths = append(paths, getPath(dep))
+	}
+	return paths
+}
+
 func (c *config) HostJNIToolPath(ctx PathContext, lib string) Path {
 	ext := ".so"
 	if runtime.GOOS == "darwin" {

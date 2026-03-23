@@ -1375,7 +1375,7 @@ func (c *RuleBuilderCommand) getToolModule(tool string) ModuleProxy {
 		if ctx.Config().AllowMissingDependencies() {
 			c.rule.MissingDeps([]string{tool})
 		} else {
-			ctxInfo.errorFunc("Host tool %s not found in deps", tool)
+			ctxInfo.errorFunc("Host tool %s not found in deps. Please add a dependency to the tool using AddHostToolDependencies", tool)
 		}
 	}
 	return toolModule
@@ -1391,6 +1391,18 @@ func (c *RuleBuilderCommand) getToolTransitiveDeps(tool string) InstallPaths {
 	}
 
 	return transitiveInstallFiles
+}
+
+func (c *RuleBuilderCommand) getHostToolRuntimeDeps(tool string) Paths {
+	toolModule := c.getToolModule(tool)
+	var runtimeHostToolDeps Paths
+	if !toolModule.IsNil() {
+		if deps := OtherModulePointerProviderOrDefault(c.rule.ctx, toolModule, CommonModuleInfoProvider).RuntimeHostToolDeps; deps != nil {
+			runtimeHostToolDeps = append(runtimeHostToolDeps, deps...)
+		}
+	}
+
+	return runtimeHostToolDeps
 }
 
 // BuiltTool adds the specified tool path that was built using a host Soong module to the command line.  The path will
@@ -1427,6 +1439,9 @@ func (c *RuleBuilderCommand) builtToolWithoutDeps(tool string) *RuleBuilderComma
 	if len(transitiveInstallFiles) > 0 {
 		cmd.ImplicitTools(transitiveInstallFiles)
 	}
+
+	cmd.ImplicitTools(c.getHostToolRuntimeDeps(tool))
+
 	return cmd
 }
 

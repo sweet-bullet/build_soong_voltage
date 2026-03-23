@@ -2149,6 +2149,7 @@ type CommonModuleInfo struct {
 	BaseJarJarProviderData         *BaseJarJarProviderData
 	InstallFiles                   *InstallFilesInfo
 	NinjaPhonies                   map[string]NinjaPhoniesGlobsInfo
+	RuntimeHostToolDeps            Paths
 }
 
 // NinjaPhoniesGlobsInfo is only necessary because the gob code doesn't support serializing
@@ -2560,6 +2561,7 @@ func (m *ModuleBase) GenerateBuildActions(blueprintCtx blueprint.ModuleContext) 
 		Containers:                                   ctx.containersInfo,
 		BaseJarJarProviderData:                       ctx.baseJarJarProviderData,
 		NinjaPhonies:                                 ctx.ninjaPhonies,
+		RuntimeHostToolDeps:                          ctx.runtimeHostToolDeps,
 	}
 	outputFiles := ctx.GetOutputFiles()
 	if outputFiles.DefaultOutputFiles != nil || outputFiles.TaggedOutputFiles != nil {
@@ -2686,14 +2688,15 @@ func (m *ModuleBase) GenerateBuildActions(blueprintCtx blueprint.ModuleContext) 
 		expectedPath := ctx.Config().HostToolPath(ctx, ctx.ModuleName())
 		hostToolPath := htp.HostToolPath()
 		if hostToolPath.Valid() && hostToolPath.String() == expectedPath.String() {
+
 			// Create the hostTool-<name>-deps phony target that depends on all the installed files.
 			// This will be depended on by static rules that use host tools. We depend on the
-			// transitive installed files (not just direct) in order to pick up things like shared
-			// libraries.
+			// transitive installed files (not just direct)  and the runtime dependencies of the tool
+			// in order to pick up things like shared libraries.
 			ctx.Build(pctx, BuildParams{
 				Rule:   blueprint.Phony,
 				Output: PathForPhony(ctx, "hostTool-"+ctx.ModuleName()+"-deps"),
-				Inputs: InstallPaths(installFiles.TransitiveInstallFiles.ToList()).Paths(),
+				Inputs: append(InstallPaths(installFiles.TransitiveInstallFiles.ToList()).Paths(), ctx.runtimeHostToolDeps...),
 			})
 		}
 	}

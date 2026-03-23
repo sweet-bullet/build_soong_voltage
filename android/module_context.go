@@ -291,6 +291,10 @@ type ModuleContext interface {
 	SetMakeNamesInfo(info *MakeNamesInfo)
 
 	SetBaseJarJarProviderData(data *BaseJarJarProviderData)
+
+	AddRuntimeDeps(deps ...Path)
+
+	AddRuntimeHostToolDeps(deps ...blueprint.HostTool)
 }
 
 type moduleContext struct {
@@ -367,6 +371,8 @@ type moduleContext struct {
 	baseJarJarProviderDataSet bool
 
 	ninjaPhonies map[string]NinjaPhoniesGlobsInfo
+
+	runtimeHostToolDeps Paths
 }
 
 var _ ModuleContext = &moduleContext{}
@@ -1136,4 +1142,23 @@ func (c *moduleContext) SetBaseJarJarProviderData(data *BaseJarJarProviderData) 
 	}
 	c.baseJarJarProviderData = data
 	c.baseJarJarProviderDataSet = true
+}
+
+func (c *moduleContext) AddRuntimeDeps(deps ...Path) {
+	if !c.Host() {
+		return
+	}
+
+	c.runtimeHostToolDeps = append(c.runtimeHostToolDeps, deps...)
+}
+
+func (c *moduleContext) AddRuntimeHostToolDeps(deps ...blueprint.HostTool) {
+	if !c.Host() {
+		return
+	}
+
+	for _, tool := range deps {
+		paths := c.Config().HostToolAndDepsPathsFromHostTool(c, tool)
+		c.AddRuntimeDeps(paths...)
+	}
 }

@@ -7213,12 +7213,27 @@ func (r CommonModuleInfo) Encode(ctx gobtools.EncContext, buf *bytes.Buffer) err
 			}
 		}
 	}
+
+	if r.RuntimeHostToolDeps == nil {
+		if err = gobtools.EncodeInt(buf, -1); err != nil {
+			return err
+		}
+	} else {
+		if err = gobtools.EncodeInt(buf, len(r.RuntimeHostToolDeps)); err != nil {
+			return err
+		}
+		for val34 := 0; val34 < len(r.RuntimeHostToolDeps); val34++ {
+			if err = gobtools.EncodeInterface(ctx, buf, r.RuntimeHostToolDeps[val34]); err != nil {
+				return err
+			}
+		}
+	}
 	return err
 }
 
 func (r CommonModuleInfo) CustomHash(hasher *proptools.Hasher) error {
 	hasher.WriteString(":android.CommonModuleInfo")
-	hasher.WriteInt(64)
+	hasher.WriteInt(65)
 	hasher.WriteString(":.bool")
 	if r.Enabled {
 		hasher.WriteByte(1)
@@ -7789,6 +7804,36 @@ func (r CommonModuleInfo) CustomHash(hasher *proptools.Hasher) error {
 		hasher.WriteString(val56)
 		if err := r.NinjaPhonies[val56].CustomHash(hasher); err != nil {
 			return err
+		}
+	}
+	hasher.WriteString(":android.Paths")
+	hasher.WriteString(":.[]Path")
+	hasher.WriteInt(len(r.RuntimeHostToolDeps))
+	for val58 := 0; val58 < len(r.RuntimeHostToolDeps); val58++ {
+		hasher.WriteString(":android.Path")
+		val59 := r.RuntimeHostToolDeps[val58] == nil
+		if val59 {
+			hasher.WriteByte(0)
+		} else {
+			if v := reflect.ValueOf(r.RuntimeHostToolDeps[val58]); v.Kind() == reflect.Ptr {
+				if v.IsNil() {
+					panic(fmt.Errorf("nil pointer is not supported in interface"))
+				} else {
+					val60 := r.RuntimeHostToolDeps[val58] == nil
+					if val60 {
+						hasher.WriteByte(0)
+					} else {
+						val61 := func(hasher *proptools.Hasher) error {
+							return r.RuntimeHostToolDeps[val58].(proptools.CustomHash).CustomHash(hasher)
+						}
+						if err := proptools.HashReference(hasher, uintptr(v.Pointer()), val61); err != nil {
+							return err
+						}
+					}
+				}
+			} else {
+				r.RuntimeHostToolDeps[val58].(proptools.CustomHash).CustomHash(hasher)
+			}
 		}
 	}
 	return nil
@@ -8367,6 +8412,24 @@ func (r *CommonModuleInfo) Decode(ctx gobtools.EncContext, buf *bytes.Reader) er
 				return err
 			}
 			r.NinjaPhonies[val137] = val138
+		}
+	}
+
+	var val143 int
+	err = gobtools.DecodeInt(buf, &val143)
+	if err != nil {
+		return err
+	}
+	if val143 != -1 {
+		r.RuntimeHostToolDeps = make([]Path, val143)
+		for val144 := 0; val144 < int(val143); val144++ {
+			if val146, err := gobtools.DecodeInterface(ctx, buf); err != nil {
+				return err
+			} else if val146 == nil {
+				r.RuntimeHostToolDeps[val144] = nil
+			} else {
+				r.RuntimeHostToolDeps[val144] = val146.(Path)
+			}
 		}
 	}
 
