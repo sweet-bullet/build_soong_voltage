@@ -447,7 +447,15 @@ func collectDepsMutator(mctx android.BottomUpMutatorContext) {
 
 	if _, ok := fsGenState.depCandidatesMap[moduleName]; ok {
 		installPartition := m.PartitionTag(mctx.DeviceConfig())
-		if isEligibleForFsDeps(mctx) {
+		systemPartitionFalsePositive := installPartition == "system" && android.InList(m.ImageVariation().Variation, []string{
+			// cc/image.go marks some ramdisk and recovery modules as platform.
+			// https://cs.android.com/android/platform/superproject/main/+/main:build/soong/cc/image.go;l=514-522?q=MakeAsPlatform%20f:build%2Fsoong&ss=android%2Fplatform%2Fsuperproject%2Fmain
+			// Skip them in fsgen.
+			android.RamdiskVariation,
+			android.VendorRamdiskVariation,
+			android.RecoveryVariation,
+		})
+		if isEligibleForFsDeps(mctx) && !systemPartitionFalsePositive {
 			appendDepIfAppropriate(mctx, fsGenState.fsDeps[installPartition], installPartition, android.NativeBridgeDisabled, mctx.ModuleName())
 		}
 	}
