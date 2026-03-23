@@ -367,6 +367,7 @@ func createNoPrebuiltImageRule() Rule {
 func createKotlinPluginRule() []Rule {
 	kotlinPluginProjectsAllowedList := []string{
 		"external/kotlinc",
+		"tools/strictdeps/kotlin",
 	}
 
 	return []Rule{

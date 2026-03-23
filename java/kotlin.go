@@ -272,6 +272,19 @@ func (j *Module) kotlinCompile(ctx android.ModuleContext, outputFile, headerOutp
 	android.WriteFileRule(ctx, classpathRspFile, strings.Join(flags.kotlincClasspath.Strings(), " "))
 	deps = append(deps, classpathRspFile)
 
+	if flags.strictDepsLevel != "" && len(flags.directClasspath) > 0 {
+		rspFile := android.PathForModuleOut(ctx, "strict_deps.rsp")
+		android.WriteFileRule(ctx, rspFile, strings.Join(flags.directClasspath.Strings(), "\n"))
+		deps = append(deps, rspFile)
+
+		for _, pluginJar := range flags.kotlinStrictDepsPluginJars {
+			flags.kotlincFlags += " -Xplugin=" + pluginJar.String()
+			deps = append(deps, pluginJar)
+		}
+		flags.kotlincFlags += " -P plugin:com.android.strictdeps:rsp=" + rspFile.String()
+		flags.kotlincFlags += " -P plugin:com.android.strictdeps:level=" + flags.strictDepsLevel
+	}
+
 	if incremental {
 		var snapshotDeps android.Paths
 		// Check that we have a snapshot.bin for each jar, and include them as needed.

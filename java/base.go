@@ -1154,6 +1154,7 @@ func (j *Module) collectBuilderFlags(ctx android.ModuleContext, deps deps) javaB
 	flags.classpath = append(flags.classpath, deps.classpath...)
 	flags.directClasspath = append(flags.directClasspath, deps.directClasspath...)
 	flags.javaStrictDepsPluginJars = append(flags.javaStrictDepsPluginJars, deps.javaStrictDepsPluginJars...)
+	flags.kotlinStrictDepsPluginJars = append(flags.kotlinStrictDepsPluginJars, deps.kotlinStrictDepsPluginJars...)
 	flags.dexClasspath = append(flags.dexClasspath, deps.dexClasspath...)
 	flags.java9Classpath = append(flags.java9Classpath, deps.java9Classpath...)
 	flags.processorPath = append(flags.processorPath, deps.processorPath...)

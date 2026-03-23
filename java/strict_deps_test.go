@@ -72,6 +72,13 @@ func TestStrictDeps(t *testing.T) {
 				}
 
 				java_library {
+					name: "foo_kotlin",
+					srcs: ["a.kt"],
+					libs: ["bar"],
+					`+strictDepsStr+`
+				}
+
+				java_library {
 					name: "bar",
 					srcs: ["b.java"],
 					static_libs: ["baz"],
@@ -129,6 +136,12 @@ func TestStrictDeps(t *testing.T) {
 				fooIncRsp := android.ContentFromFileRuleForTests(t, result.TestContext, result.ModuleForTests(t, "foo", "android_common").Output("javac/strict_deps.rsp"))
 				android.AssertStringDoesContain(t, "foo (incremental) rsp file contents include bar", fooIncRsp, "bar.jar")
 				android.AssertStringDoesNotContain(t, "foo (incremental) rsp file contents EXCLUDE baz", fooIncRsp, "baz.jar")
+
+				fooKotlinRule := result.ModuleForTests(t, "foo_kotlin", "android_common").Rule("kotlinc")
+				fooKotlinRspPath := result.ModuleForTests(t, "foo_kotlin", "android_common").Output("strict_deps.rsp").Output.String()
+				android.AssertStringDoesContain(t, "foo_kotlin kotlinc flags (-Xplugin)", fooKotlinRule.Args["kotlincFlags"], "-Xplugin=")
+				android.AssertStringDoesContain(t, "foo_kotlin kotlinc flags (-P rsp)", fooKotlinRule.Args["kotlincFlags"], "-P plugin:com.android.strictdeps:rsp="+fooKotlinRspPath)
+				android.AssertStringDoesContain(t, "foo_kotlin kotlinc flags (-P level)", fooKotlinRule.Args["kotlincFlags"], "-P plugin:com.android.strictdeps:level="+tc.value)
 			} else {
 				// When strict_deps is off, directClasspath shouldn't be populated for injection whitelisting
 				if len(classpathStrings) > 0 {
@@ -140,6 +153,9 @@ func TestStrictDeps(t *testing.T) {
 
 				android.AssertStringDoesNotContain(t, "foo (incremental) javac flags should NOT have plugin", fooIncRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps")
 				android.AssertStringDoesNotContain(t, "foo_sharded javac flags should NOT have plugin", fooShardedRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps")
+
+				fooKotlinRule := result.ModuleForTests(t, "foo_kotlin", "android_common").Rule("kotlinc")
+				android.AssertStringDoesNotContain(t, "foo_kotlin kotlinc flags should NOT have plugin", fooKotlinRule.Args["kotlincFlags"], "-Xplugin=")
 			}
 		})
 	}

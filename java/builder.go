@@ -511,9 +511,10 @@ type javaBuilderFlags struct {
 	aidlDeps        android.Paths
 	javaVersion     javaVersion
 
-	errorProneExtraJavacFlags string
-	errorProneProcessorPath   classpath
-	javaStrictDepsPluginJars  android.Paths
+	errorProneExtraJavacFlags  string
+	errorProneProcessorPath    classpath
+	javaStrictDepsPluginJars   android.Paths
+	kotlinStrictDepsPluginJars android.Paths
 
 	kotlincFlags                string
 	kotlincPluginFlags          string
