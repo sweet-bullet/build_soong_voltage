@@ -513,7 +513,7 @@ type javaBuilderFlags struct {
 
 	errorProneExtraJavacFlags string
 	errorProneProcessorPath   classpath
-	strictDepsPluginJars      android.Paths
+	javaStrictDepsPluginJars  android.Paths
 
 	kotlincFlags                string
 	kotlincPluginFlags          string
@@ -757,6 +757,20 @@ func TurbineApt(ctx android.ModuleContext, outputSrcJar, outputResJar android.Wr
 	})
 }
 
+func injectStrictDepsFlags(ctx android.ModuleContext, flags javaBuilderFlags, deps android.Paths, rspFile android.WritablePath) (javaBuilderFlags, android.Paths) {
+	// Inject the strict deps plugin into the javac execution
+	flags.processorPath = append(flags.processorPath, flags.javaStrictDepsPluginJars...)
+	deps = append(deps, flags.javaStrictDepsPluginJars...)
+
+	android.WriteFileRule(ctx, rspFile, strings.Join(flags.directClasspath.Strings(), "\n"))
+	deps = append(deps, rspFile)
+	flags.javacFlags += " -Xplugin:\"JavaStrictDeps " + rspFile.String() + "\""
+	flags.javacFlags += " -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED"
+	flags.javacFlags += " -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED"
+	flags.javacFlags += " -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED"
+	return flags, deps
+}
+
 // Similar to transformJavaToClasses, with additional tweaks to make java
 // compilation work incrementally (i.e. work with a smaller subset of src java files
 // rather than the full set)
@@ -876,6 +890,11 @@ func transformJavaToClassesInc(ctx android.ModuleContext, outputFile android.Wri
 
 	deps = append(deps, flags.javacFlagsDeps...)
 
+	if flags.strictDepsLevel != "" && len(flags.directClasspath) > 0 {
+		rspFile := outputFile.ReplaceExtension(ctx, "strict_deps.rsp")
+		flags, deps = injectStrictDepsFlags(ctx, flags, deps, rspFile)
+	}
+
 	rule := javacInc
 	ctx.Build(pctx, android.BuildParams{
 		Rule:           rule,
@@ -977,6 +996,16 @@ func transformJavaToClasses(ctx android.ModuleContext, outputFile android.Writab
 	deps = append(deps, flags.processorPath...)
 	deps = append(deps, genAnnoSrcJars...)
 	deps = append(deps, flags.javacFlagsDeps...)
+
+	if flags.strictDepsLevel != "" && len(flags.directClasspath) > 0 {
+		var rspFile android.WritablePath
+		if shardIdx >= 0 {
+			rspFile = android.PathForModuleOut(ctx, intermediatesDir, "shard"+strconv.Itoa(shardIdx), "strict_deps.rsp")
+		} else {
+			rspFile = android.PathForModuleOut(ctx, intermediatesDir, "strict_deps.rsp")
+		}
+		flags, deps = injectStrictDepsFlags(ctx, flags, deps, rspFile)
+	}
 
 	processor := "-proc:none"
 	if len(flags.processors) > 0 {

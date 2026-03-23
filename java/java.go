@@ -818,7 +818,7 @@ type deps struct {
 	headerJarOverride          android.OptionalPath
 	headerJarOverridePreJarjar android.OptionalPath
 
-	strictDepsPluginJars       android.Paths
+	javaStrictDepsPluginJars   android.Paths
 	kotlinStrictDepsPluginJars android.Paths
 
 	disableTurbine bool

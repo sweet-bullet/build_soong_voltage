@@ -17,7 +17,6 @@ package java
 
 import (
 	"android/soong/android"
-	"strings"
 	"testing"
 )
 
@@ -65,6 +64,14 @@ func TestStrictDeps(t *testing.T) {
 				}
 
 				java_library {
+					name: "foo_sharded",
+					srcs: ["a.java", "b.java"],
+					libs: ["bar"],
+					javac_shard_size: 1,
+					`+strictDepsStr+`
+				}
+
+				java_library {
 					name: "bar",
 					srcs: ["b.java"],
 					static_libs: ["baz"],
@@ -105,32 +112,34 @@ func TestStrictDeps(t *testing.T) {
 				android.AssertBoolEquals(t, "soong_kotlin_strict_deps_plugin dependency", true, hasKotlinPlugin)
 			}
 
-			// 2. Verify directClasspath contains only direct libs and excludes transitive static libs
 			fooLib := foo.(*Library)
-			hasBar := false
-			hasTransitiveBaz := false
-
 			classpathStrings := fooLib.directClasspath.Strings()
-			t.Logf("foo directClasspath: %v", classpathStrings)
-
-			for _, p := range classpathStrings {
-				if strings.Contains(p, "bar.jar") || strings.Contains(p, "bar/android_common") {
-					hasBar = true
-				}
-				if strings.Contains(p, "baz.jar") || strings.Contains(p, "baz/android_common") {
-					hasTransitiveBaz = true
-				}
-			}
 
 			if strictDepsEnabled {
-				android.AssertBoolEquals(t, "directClasspath includes bar", true, hasBar)
-				android.AssertBoolEquals(t, "directClasspath EXCLUDES transitive baz", false, hasTransitiveBaz)
+				// Verify both compilation pathways (incremental and sharded/full) generate the JavaStrictDeps plugin flag
+				fooIncRule := result.ModuleForTests(t, "foo", "android_common").Rule("javac")
+				fooShardedRule := result.ModuleForTests(t, "foo_sharded", "android_common").Rule("javac")
 
+				fooIncRspPath := result.ModuleForTests(t, "foo", "android_common").Output("javac/strict_deps.rsp").Output.String()
+				android.AssertStringDoesContain(t, "foo (incremental) javac flags", fooIncRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps "+fooIncRspPath+"\"")
+
+				fooShardedRspPath := result.ModuleForTests(t, "foo_sharded", "android_common").Output("javac/shard0/strict_deps.rsp").Output.String()
+				android.AssertStringDoesContain(t, "foo_sharded (full/sharded) javac flags", fooShardedRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps "+fooShardedRspPath+"\"")
+
+				fooIncRsp := android.ContentFromFileRuleForTests(t, result.TestContext, result.ModuleForTests(t, "foo", "android_common").Output("javac/strict_deps.rsp"))
+				android.AssertStringDoesContain(t, "foo (incremental) rsp file contents include bar", fooIncRsp, "bar.jar")
+				android.AssertStringDoesNotContain(t, "foo (incremental) rsp file contents EXCLUDE baz", fooIncRsp, "baz.jar")
 			} else {
 				// When strict_deps is off, directClasspath shouldn't be populated for injection whitelisting
 				if len(classpathStrings) > 0 {
 					t.Errorf("Expected directClasspath to be empty when strict_deps is off/omitted, but got: %v", classpathStrings)
 				}
+
+				fooIncRule := result.ModuleForTests(t, "foo", "android_common").Rule("javac")
+				fooShardedRule := result.ModuleForTests(t, "foo_sharded", "android_common").Rule("javac")
+
+				android.AssertStringDoesNotContain(t, "foo (incremental) javac flags should NOT have plugin", fooIncRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps")
+				android.AssertStringDoesNotContain(t, "foo_sharded javac flags should NOT have plugin", fooShardedRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps")
 			}
 		})
 	}

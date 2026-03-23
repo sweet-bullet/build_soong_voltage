@@ -1150,7 +1150,7 @@ func (j *Module) collectBuilderFlags(ctx android.ModuleContext, deps deps) javaB
 	flags.bootClasspath = append(flags.bootClasspath, deps.bootClasspath...)
 	flags.classpath = append(flags.classpath, deps.classpath...)
 	flags.directClasspath = append(flags.directClasspath, deps.directClasspath...)
-	flags.strictDepsPluginJars = append(flags.strictDepsPluginJars, deps.strictDepsPluginJars...)
+	flags.javaStrictDepsPluginJars = append(flags.javaStrictDepsPluginJars, deps.javaStrictDepsPluginJars...)
 	flags.dexClasspath = append(flags.dexClasspath, deps.dexClasspath...)
 	flags.java9Classpath = append(flags.java9Classpath, deps.java9Classpath...)
 	flags.processorPath = append(flags.processorPath, deps.processorPath...)
@@ -2994,7 +2994,7 @@ func (j *Module) collectDeps(ctx android.ModuleContext) deps {
 				}
 			case javaStrictDepsPluginTag:
 				if _, ok := android.OtherModuleProvider(ctx, module, JavaPluginInfoProvider); ok {
-					deps.strictDepsPluginJars = append(deps.strictDepsPluginJars, dep.ImplementationAndResourcesJars...)
+					deps.javaStrictDepsPluginJars = append(deps.javaStrictDepsPluginJars, dep.ImplementationAndResourcesJars...)
 				} else {
 					ctx.PropertyErrorf("plugins", "%q is not a java_plugin module", otherName)
 				}
