@@ -61,6 +61,10 @@ func PrebuiltBootloaderFactory() android.Module {
 	return module
 }
 
+func (p *prebuiltBootloader) DepsMutator(ctx android.BottomUpMutatorContext) {
+	ctx.AddHostToolDependencies("avbtool", "avb_openssl")
+}
+
 func (p *prebuiltBootloader) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	if p.properties.Src == nil {
 		ctx.PropertyErrorf("src", "Source cannot be empty")
@@ -85,7 +89,7 @@ func (p *prebuiltBootloader) partitionFilesBootloader(ctx android.ModuleContext)
 	}
 	var files android.Paths
 	unpackedDir := android.PathForModuleOut(ctx, "unpack_bootloader")
-	builder := android.NewRuleBuilder(pctx, ctx).SandboxDisabled().Sbox(
+	builder := android.NewRuleBuilder(pctx, ctx).Sbox(
 		unpackedDir,
 		android.PathForModuleOut(ctx, "unpack_bootloader.textproto"),
 	)
@@ -117,10 +121,11 @@ func (p *prebuiltBootloader) partitionFilesBootloader(ctx android.ModuleContext)
 
 func (p *prebuiltBootloader) avbAddHash(ctx android.ModuleContext, builder *android.RuleBuilder, partitionName string, unpackedPartition android.OutputPath) android.Path {
 	output := unpackedPartition.InSameDir(ctx, partitionName+"_vbfooted.img")
-	builder.Command().Text("cp").Input(unpackedPartition).Output(output)
+	builder.Command().BuiltTool("cp").Input(unpackedPartition).Output(output)
 
 	cmd := builder.Command()
 	cmd.BuiltTool("avbtool").
+		ImplicitTool(ctx.Config().HostToolPath(ctx, "avb_openssl")).
 		Text("add_hash_footer").
 		FlagWithOutput("--image ", output).
 		FlagWithArg("--partition_name ", partitionName).
