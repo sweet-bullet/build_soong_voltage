@@ -24,6 +24,8 @@ import (
 	"github.com/google/blueprint/proptools"
 )
 
+//go:generate go run ../../../blueprint/gobtools/codegen
+
 func init() {
 	RegisterCipdPackageComponents(android.InitRegistrationContext)
 
@@ -35,6 +37,14 @@ func init() {
 func RegisterCipdPackageComponents(ctx android.RegistrationContext) {
 	ctx.RegisterModuleType("cipd_package", cipdPackageFactory)
 }
+
+// @auto-generate: gob
+type CipdPackageInfo struct {
+	FullPackageName string
+	Version         string
+}
+
+var CipdPackageInfoProvider = blueprint.NewProvider[*CipdPackageInfo]()
 
 var (
 	pctx = android.NewPackageContext("android/cipd")
@@ -200,6 +210,10 @@ func (p *cipdPackageModule) GenerateAndroidBuildActions(ctx android.ModuleContex
 	pkg, version, err := p.computePackageVersion(ctx)
 	if err != nil {
 		android.ErrorRule(ctx, ensureFile, p.Name()+": "+err.Error())
+		android.SetProvider(ctx, CipdPackageInfoProvider, &CipdPackageInfo{
+			FullPackageName: pkg,
+			Version:         version,
+		})
 	} else {
 		android.WriteFileRule(ctx, ensureFile, fmt.Sprintf("$ResolvedVersions %s\n%s %s\n", resolvedVersionsTxt, pkg, version))
 	}
