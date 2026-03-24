@@ -804,6 +804,13 @@ func (d *dexer) r8Flags(ctx android.ModuleContext, dexParams *compileDexParams, 
 	flagFiles = append(flagFiles, proguardFlagsFiles.files...)
 	r8Deps = append(r8Deps, proguardFlagsFiles.included...)
 
+	// Note: This is a special case where we explicitly don't want SDK-injected
+	// proguard rules to propagate to other targets or cross library boundaries,
+	// otherwise we'd reuse existing propagation with ProguardSpecInfoProvider.
+	ctx.VisitDirectDepsProxyWithTag(sdkDepProguardTag, func(m android.ModuleProxy) {
+		flagFiles = append(flagFiles, android.OutputFilesForModule(ctx, m, "")...)
+	})
+
 	traceReferencesSources := android.Paths{}
 	ctx.VisitDirectDepsProxyWithTag(traceReferencesTag, func(m android.ModuleProxy) {
 		if dep, ok := android.OtherModuleProvider(ctx, m, JavaInfoProvider); ok {

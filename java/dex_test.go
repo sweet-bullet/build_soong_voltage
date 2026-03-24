@@ -1003,3 +1003,39 @@ func TestBuildProguardZipsDeduplication(t *testing.T) {
 		t.Errorf("Expected dictionary path %q to appear exactly once in command, but found %d times. Command: %q", dictionaryFakePath, count, command)
 	}
 }
+
+func TestSdkDepProguardFlags(t *testing.T) {
+	t.Parallel()
+	result := PrepareForTestWithJavaDefaultModules.RunTestWithBp(t, `
+		android_app {
+			name: "platform_app",
+			srcs: ["foo.java"],
+			platform_apis: true,
+			optimize: {
+				enabled: true,
+				shrink: true,
+			},
+		}
+
+		android_app {
+			name: "stable_app",
+			srcs: ["foo.java"],
+			sdk_version: "current",
+			optimize: {
+				enabled: true,
+				shrink: true,
+			},
+		}
+	`)
+
+	platformApp := result.ModuleForTests(t, "platform_app", "android_common")
+	stableApp := result.ModuleForTests(t, "stable_app", "android_common")
+
+	platformR8 := platformApp.Rule("r8")
+	android.AssertStringDoesContain(t, "expected framework-private-proguard flags in platform_app r8 flags",
+		platformR8.Args["r8Flags"], "framework-private.flags")
+
+	stableR8 := stableApp.Rule("r8")
+	android.AssertStringDoesNotContain(t, "expected no framework-private-proguard flags in stable_app r8 flags",
+		stableR8.Args["r8Flags"], "framework-private.flags")
+}

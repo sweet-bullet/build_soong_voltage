@@ -641,6 +641,9 @@ var (
 	composeEmbeddablePluginTag = dependencyTag{name: "compose-embeddable-plugin", toolchain: true}
 	composePluginTag           = dependencyTag{name: "compose-plugin", toolchain: true}
 	proguardRaiseTag           = dependencyTag{name: "proguard-raise"}
+	// Note: SDK-specific Proguard modules are intentionally locked down for visibility, and usage
+	// should only be allowed via explicit tags orchestrated by the build system.
+	sdkDepProguardTag = excludeFromVisibilityEnforcementDependencyTag{dependencyTag{name: "sdk-dep-proguard"}}
 	//TODO(b/465840743): Enable the visibility enforcement for certificateTag dependency.
 	certificateTag          = excludeFromVisibilityEnforcementDependencyTag{dependencyTag{name: "certificate"}}
 	headerJarOverrideTag    = dependencyTag{name: "header-jar-override"}
@@ -683,6 +686,7 @@ var (
 		syspropPublicStubDepTag,
 		instrumentationForTag,
 		traceReferencesTag,
+		sdkDepProguardTag,
 	}
 )
 
@@ -734,6 +738,9 @@ type sdkDep struct {
 	aidl android.OptionalPath
 
 	noStandardLibs, noFrameworksLibs bool
+
+	// Custom Proguard file modules to apply based on the target SDK.
+	proguardFlags []string
 }
 
 func (s sdkDep) hasStandardLibs() bool {
@@ -768,6 +775,9 @@ func sdkDeps(ctx android.BottomUpMutatorContext, sdkContext android.SdkContext, 
 		}
 		if addR8DexDeps && sdkDep.hasFrameworkLibs() {
 			ctx.AddVariationDependencies(nil, proguardRaiseTag, config.FrameworkLibraries...)
+		}
+		if addR8DexDeps {
+			ctx.AddVariationDependencies(nil, sdkDepProguardTag, sdkDep.proguardFlags...)
 		}
 	}
 	if sdkDep.systemModules != "" {
