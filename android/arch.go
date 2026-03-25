@@ -488,7 +488,8 @@ func (o *osTransitionMutator) split(ctx BaseModuleContext) ([]string, *allOsInfo
 }
 
 var splitAllAllowlist = []string{
-	"okio-lib", // source library in root namespace with a prebuilt in a non root namespace.
+	"okio-lib",   // source library in root namespace with a prebuilt in a non root namespace.
+	"libtonemap", // source library in root namespace with a prebuilt in a non root namespace.
 }
 
 // splitAllOsArchCommon returns true if all the supported variants should be created upfront.
