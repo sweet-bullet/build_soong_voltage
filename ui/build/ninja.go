@@ -120,6 +120,7 @@ func runNinja(ctx Context, config Config, ninjaArgs []string) {
 			args = append(args, "--project=", "--reapi_address=", "--reapi_instance=")
 		case config.UseRBEproxy():
 			ctx.Verbosef("with rbeproxy\n")
+			args = append(args, "--write_reclient_metrics_logs")
 			if config.RemoteParallel() != 0 {
 				args = append(args, "--remote_jobs", strconv.Itoa(config.RemoteParallel()))
 			}
