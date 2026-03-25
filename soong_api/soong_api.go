@@ -142,7 +142,7 @@ func (c *soongApiSingleton) fillCommonMetadata(record *SoongApiModuleRecord, com
 	}
 
 	record.Os = common.Target.Os.Name
-	record.Arch = common.Target.Arch.ArchType.Name
+	record.Arch = common.Target.ArchVariation()
 
 	if common.InstallFiles != nil {
 		record.InstallFiles = pathsToStrings(common.InstallFiles.InstallFiles)
