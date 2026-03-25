@@ -92,6 +92,8 @@ type DexProperties struct {
 
 		// If true, runs R8 in Proguard compatibility mode, otherwise runs R8 in full mode.
 		// Defaults to false.
+		//
+		// Deprecated: This will soon be removed and disabled universally. See b/215530220.
 		Proguard_compatibility proptools.Configurable[bool] `android:"replace_instead_of_append"`
 
 		// If true, R8 will not add public or protected members (fields or methods) to
@@ -837,7 +839,7 @@ func (d *dexer) r8Flags(ctx android.ModuleContext, dexParams *compileDexParams, 
 		r8Flags = append(r8Flags, "--keep-runtime-invisible-annotations")
 	}
 
-	if opt.Proguard_compatibility.GetOrDefault(ctx, !ctx.Config().UseR8FullModeByDefault()) {
+	if opt.Proguard_compatibility.GetOrDefault(ctx, false) {
 		r8Flags = append(r8Flags, "--force-proguard-compatibility")
 	}
 
