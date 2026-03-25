@@ -210,12 +210,12 @@ func (p *cipdPackageModule) GenerateAndroidBuildActions(ctx android.ModuleContex
 	pkg, version, err := p.computePackageVersion(ctx)
 	if err != nil {
 		android.ErrorRule(ctx, ensureFile, p.Name()+": "+err.Error())
+	} else {
+		android.WriteFileRule(ctx, ensureFile, fmt.Sprintf("$ResolvedVersions %s\n%s %s\n", resolvedVersionsTxt, pkg, version))
 		android.SetProvider(ctx, CipdPackageInfoProvider, &CipdPackageInfo{
 			FullPackageName: pkg,
 			Version:         version,
 		})
-	} else {
-		android.WriteFileRule(ctx, ensureFile, fmt.Sprintf("$ResolvedVersions %s\n%s %s\n", resolvedVersionsTxt, pkg, version))
 	}
 
 	files := p.properties.Files.GetOrDefault(ctx, nil)

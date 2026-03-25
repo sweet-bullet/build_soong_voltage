@@ -16,6 +16,7 @@ package soong_api
 
 import (
 	"android/soong/android"
+	"android/soong/android/cipd"
 	"android/soong/cc"
 	"android/soong/java"
 	"android/soong/rust"
@@ -89,6 +90,10 @@ type SoongApiModuleRecord struct {
 	// CRT
 	CrtLibs     []string `json:"crt_libs,omitempty"`
 	CrtLibFiles []string `json:"crt_lib_files,omitempty"`
+
+	// CIPD
+	CipdVersion     string `json:"cipd_version,omitempty"`
+	CipdPackageName string `json:"cipd_package_name,omitempty"`
 }
 
 func soongApiSingletonFactory() android.Singleton {
@@ -121,6 +126,7 @@ func (c *soongApiSingleton) GenerateBuildActions(ctx android.SingletonContext) {
 		c.fillTeamMetadata(ctx, m, &record)
 		c.fillTestMetadata(&record, commonInfo)
 		c.fillLanguageMetadata(ctx, m, &record)
+		c.fillCipdMetadata(ctx, m, &record)
 
 		// Final data deduplication and cleanup
 		c.cleanupRecord(&record)
@@ -265,6 +271,14 @@ func (c *soongApiSingleton) fillLanguageMetadata(ctx android.SingletonContext, m
 			}
 		}
 	})
+}
+
+// fillCipdMetadata extracts CIPD version and package name.
+func (c *soongApiSingleton) fillCipdMetadata(ctx android.SingletonContext, m android.ModuleProxy, record *SoongApiModuleRecord) {
+	if cipdInfo, ok := android.OtherModuleProvider(ctx, m, cipd.CipdPackageInfoProvider); ok {
+		record.CipdVersion = cipdInfo.Version
+		record.CipdPackageName = cipdInfo.FullPackageName
+	}
 }
 
 // cleanupRecord performs final deduplication of collected strings.
