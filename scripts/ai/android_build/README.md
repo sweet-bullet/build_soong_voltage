@@ -1,6 +1,6 @@
 # Android Build AI SDK
 
-A pure Python SDK providing a stateless, Model Context Protocol (MCP) compliant interface for AI Agents to interact with the Android Build System (Soong, Ninja).
+A pure Python SDK providing a stateless, Model Context Protocol (MCP) compliant interface for AI Agents to interact with the Android Build System and the CLI tools (Soong, Ninja, aconfig, etc.).
 
 ## Features
 
@@ -34,11 +34,7 @@ android_build/
 ## Setup & Registration
 
 ### Automatic Registration (Recommended)
-This SDK is integrated into the standard Android developer workflow. When you source the build environment, the SDK registers itself with the Gemini CLI automatically:
-
-```bash
-source build/envsetup.sh
-```
+This SDK is integrated into the standard Googlers' developer workflow. When launching the shared MCP server, the SDK is automatically available as the MCP tools.
 
 ### Manual Registration
 If you need to register the server manually (e.g., for an external MCP client or troubleshooting), use the built-in helper:
@@ -67,7 +63,5 @@ echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}' | python3 interface/c
 To run the full suite of isolated unit tests:
 
 ```bash
-./run_tests.sh
+source build/envsetup.sh && lunch <lunch product> && atest -c build_sdk_lib_test
 ```
-
-Tests use mocks for `subprocess` and fake build artifacts to ensure they are fast and do not require a full Android build environment to verify SDK logic.

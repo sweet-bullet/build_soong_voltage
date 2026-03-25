@@ -149,7 +149,7 @@ def run_aconfig(ctx: BuildContext, args: AconfigArgs, progress_callback: Optiona
 def run_module_info(ctx: BuildContext, args: ModuleInfoArgs, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, Any]:
     """Wrapper for module.get_module_info."""
     _check_env_consistency(ctx, args.confirm_analysis)
-    info = module.get_module_info(ctx, args.module_name, args.force_refresh)
+    info = module.get_module_info(ctx, args.module_name, args.force_refresh, progress_callback=progress_callback)
     # Convert ModuleInfo dataclass to dict for JSON serialization
     info_dict = dataclasses.asdict(info)
     return info_dict

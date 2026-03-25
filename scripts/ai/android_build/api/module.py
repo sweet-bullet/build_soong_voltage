@@ -15,7 +15,7 @@
 import json
 import dataclasses
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
 from .env import BuildContext
 from .config import get_build_vars
 from .build import build_targets
@@ -76,7 +76,7 @@ def _get_product_out(ctx: BuildContext) -> Path:
         raise ToolError("TARGET_PRODUCT not found in environment.")
     return Path(android_build_top) / "out/target/product" / product
 
-def _load_json_db(ctx: BuildContext, force_refresh: bool = False) -> dict[str, ModuleInfo]:
+def _load_json_db(ctx: BuildContext, force_refresh: bool = False, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> dict[str, ModuleInfo]:
     """
     Loads module-info.json, rebuilding or reloading if necessary.
     Returns the dictionary of ModuleInfo objects.
@@ -88,7 +88,7 @@ def _load_json_db(ctx: BuildContext, force_refresh: bool = False) -> dict[str, M
 
     # Step 1: Check if file exists. If not, we MUST build.
     if not module_info_path.exists() or force_refresh:
-        build_targets(ctx, targets=["module-info"], clean=False)
+        build_targets(ctx, targets=["module-info"], clean=False, progress_callback=progress_callback)
 
         if not module_info_path.exists():
             raise ToolError(f"Build failed to generate {module_info_path}")
@@ -112,7 +112,7 @@ def _load_json_db(ctx: BuildContext, force_refresh: bool = False) -> dict[str, M
 
     return _MODULE_INFO_CACHE
 
-def get_module_info(ctx: BuildContext, module_name: str, force_refresh: bool = False) -> ModuleInfo:
+def get_module_info(ctx: BuildContext, module_name: str, force_refresh: bool = False, progress_callback: Optional[Callable[[float, Optional[float]], None]] = None) -> ModuleInfo:
     """
     Retrieves information for a specific module.
 
@@ -123,7 +123,7 @@ def get_module_info(ctx: BuildContext, module_name: str, force_refresh: bool = F
         module_name: The name of the module to inspect (e.g. 'SystemUI').
         force_refresh: If True, forces a rebuild of module-info.json.
     """
-    db = _load_json_db(ctx, force_refresh)
+    db = _load_json_db(ctx, force_refresh, progress_callback=progress_callback)
     if module_name not in db:
         raise ToolError(f"Module '{module_name}' not found in module-info.json")
     return db[module_name]
