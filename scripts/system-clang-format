@@ -1,5 +1,5 @@
 BasedOnStyle: Google
-Standard: Cpp11
+Standard: Latest
 AccessModifierOffset: -2
 AllowShortFunctionsOnASingleLine: Inline
 ColumnLimit: 100
