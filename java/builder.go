@@ -765,7 +765,7 @@ func injectStrictDepsFlags(ctx android.ModuleContext, flags javaBuilderFlags, de
 
 	android.WriteFileRule(ctx, rspFile, strings.Join(flags.directClasspath.Strings(), "\n"))
 	deps = append(deps, rspFile)
-	flags.javacFlags += " -Xplugin:\"JavaStrictDeps " + rspFile.String() + "\""
+	flags.javacFlags += " -Xplugin:\"JavaStrictDeps " + rspFile.String() + " " + flags.strictDepsLevel + "\""
 	flags.javacFlags += " -J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED"
 	flags.javacFlags += " -J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED"
 	flags.javacFlags += " -J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED"
@@ -891,7 +891,7 @@ func transformJavaToClassesInc(ctx android.ModuleContext, outputFile android.Wri
 
 	deps = append(deps, flags.javacFlagsDeps...)
 
-	if flags.strictDepsLevel != "" && len(flags.directClasspath) > 0 {
+	if flags.strictDepsLevel == "warn" || flags.strictDepsLevel == "error" {
 		rspFile := outputFile.ReplaceExtension(ctx, "strict_deps.rsp")
 		flags, deps = injectStrictDepsFlags(ctx, flags, deps, rspFile)
 	}
@@ -998,7 +998,7 @@ func transformJavaToClasses(ctx android.ModuleContext, outputFile android.Writab
 	deps = append(deps, genAnnoSrcJars...)
 	deps = append(deps, flags.javacFlagsDeps...)
 
-	if flags.strictDepsLevel != "" && len(flags.directClasspath) > 0 {
+	if flags.strictDepsLevel == "warn" || flags.strictDepsLevel == "error" {
 		var rspFile android.WritablePath
 		if shardIdx >= 0 {
 			rspFile = android.PathForModuleOut(ctx, intermediatesDir, "shard"+strconv.Itoa(shardIdx), "strict_deps.rsp")

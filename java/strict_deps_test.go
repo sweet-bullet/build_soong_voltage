@@ -128,10 +128,10 @@ func TestStrictDeps(t *testing.T) {
 				fooShardedRule := result.ModuleForTests(t, "foo_sharded", "android_common").Rule("javac")
 
 				fooIncRspPath := result.ModuleForTests(t, "foo", "android_common").Output("javac/strict_deps.rsp").Output.String()
-				android.AssertStringDoesContain(t, "foo (incremental) javac flags", fooIncRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps "+fooIncRspPath+"\"")
+				android.AssertStringDoesContain(t, "foo (incremental) javac flags", fooIncRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps "+fooIncRspPath+" "+tc.value+"\"")
 
 				fooShardedRspPath := result.ModuleForTests(t, "foo_sharded", "android_common").Output("javac/shard0/strict_deps.rsp").Output.String()
-				android.AssertStringDoesContain(t, "foo_sharded (full/sharded) javac flags", fooShardedRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps "+fooShardedRspPath+"\"")
+				android.AssertStringDoesContain(t, "foo_sharded (full/sharded) javac flags", fooShardedRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps "+fooShardedRspPath+" "+tc.value+"\"")
 
 				fooIncRsp := android.ContentFromFileRuleForTests(t, result.TestContext, result.ModuleForTests(t, "foo", "android_common").Output("javac/strict_deps.rsp"))
 				android.AssertStringDoesContain(t, "foo (incremental) rsp file contents include bar", fooIncRsp, "bar.jar")
@@ -159,4 +159,49 @@ func TestStrictDeps(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStrictDepsWrapper(t *testing.T) {
+	t.Parallel()
+
+	result := android.GroupFixturePreparers(
+		prepareForJavaTest,
+	).RunTestWithBp(t, `
+		java_library {
+			name: "foo",
+			srcs: ["a.java"],
+			libs: ["bar_wrapper"],
+			strict_deps: "error",
+		}
+
+		java_library {
+			name: "bar_wrapper",
+			libs: ["bar"],
+		}
+
+		java_library {
+			name: "bar",
+			srcs: ["b.java"],
+			static_libs: ["baz"],
+		}
+
+		java_library {
+			name: "baz",
+			srcs: ["c.java"],
+		}
+
+		java_plugin {
+			name: "soong_java_strict_deps_plugin",
+			srcs: ["plugin.java"],
+		}
+
+		kotlin_plugin {
+			name: "soong_kotlin_strict_deps_plugin",
+			srcs: ["plugin.java"],
+		}
+	`)
+
+	fooIncRule := result.ModuleForTests(t, "foo", "android_common").Rule("javac")
+	fooIncRspPath := result.ModuleForTests(t, "foo", "android_common").Output("javac/strict_deps.rsp").Output.String()
+	android.AssertStringDoesContain(t, "foo javac flags for wrapper test", fooIncRule.Args["javacFlags"], "-Xplugin:\"JavaStrictDeps "+fooIncRspPath+" error\"")
 }

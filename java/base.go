@@ -1145,7 +1145,7 @@ func (j *Module) collectBuilderFlags(ctx android.ModuleContext, deps deps) javaB
 			"'" + strings.Join(errorProneFlags, " ") + "'"
 	}
 
-	if j.properties.Strict_deps != nil {
+	if j.properties.Strict_deps != nil && (*j.properties.Strict_deps == "warn" || *j.properties.Strict_deps == "error") {
 		flags.strictDepsLevel = *j.properties.Strict_deps
 	}
 
