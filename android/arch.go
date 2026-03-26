@@ -507,7 +507,7 @@ func splitAllOsArchCommon(ctx BaseModuleContext) bool {
 	if InList(ctx.ModuleName(), splitAllAllowlist) {
 		return true
 	}
-	if strings.Contains(ctx.ModuleType(), "_test") {
+	if strings.Contains(ctx.ModuleType(), "test") {
 		// Keep the frontloaded variant creation for all tests for compatibility with atest,
 		// and test_suites.go which creates the test suites using a singleton.
 		return true
