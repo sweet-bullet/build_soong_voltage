@@ -218,12 +218,14 @@ var aapt2LinkAndGenRule = pctx.AndroidStaticRule("aapt2LinkAndGen",
 	},
 	"flags", "inFlags", "proguardOptions", "rTxt", "aapt2GenJar", "aapt2GenDir")
 
+var extractJarPackages = pctx.HostTool("extract_jar_packages")
+
 var aapt2ExtractExtraPackagesRule = pctx.AndroidStaticRule("aapt2ExtractExtraPackages",
 	blueprint.RuleParams{
-		Command:         `${config.ExtractJarPackagesCmd} -i $in -o $out --prefix '--extra-packages '`,
-		CommandDeps:     []string{"${config.ExtractJarPackagesCmd}"},
-		Restat:          true,
-		SandboxDisabled: true,
+		Command2: blueprint.NewCommand(
+			extractJarPackages, ` -i $in -o $out --prefix '--extra-packages '`,
+		),
+		Restat: true,
 	})
 
 var fileListToFileRule = pctx.AndroidStaticRule("fileListToFile",
