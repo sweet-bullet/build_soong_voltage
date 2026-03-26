@@ -1642,6 +1642,12 @@ func (m *Module) SplitAllImageVariants() bool {
 	return m.NeedsLlndkVariants()
 }
 
+func (c *Module) SplitAllVariants() bool {
+	// The vndk libraries use AddReverseVariationDependency to add themselves as deps of vndk apex.
+	// This is currently not supported by the migration to non primary variant pruning.
+	return c.IsVndkPrebuiltLibrary() || c.ModuleBase.SplitAllVariants()
+}
+
 func (m *Module) NeedsVendorPublicLibraryVariants() bool {
 	lib := moduleVersionedInterface(m)
 	return lib != nil && (lib.HasVendorPublicLibrary())
