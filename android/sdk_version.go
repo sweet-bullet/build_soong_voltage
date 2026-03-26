@@ -50,7 +50,6 @@ type SdkKind int
 const (
 	SdkInvalid SdkKind = iota
 	SdkNone
-	SdkToolchain // API surface provided by ART to compile other API domains
 	SdkCore
 	SdkCorePlatform
 	SdkIntraCore // API surface provided by one core module to another
@@ -88,8 +87,6 @@ func (k SdkKind) String() string {
 		return "module-lib"
 	case SdkSystemServer:
 		return "system-server"
-	case SdkToolchain:
-		return "toolchain"
 	default:
 		return "invalid"
 	}
