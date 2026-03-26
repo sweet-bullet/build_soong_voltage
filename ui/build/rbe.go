@@ -57,6 +57,8 @@ func rbeCommand(ctx Context, config Config, rbeCmd string) string {
 	return cmdPath
 }
 
+var defaultRBEPlatform = "container-image=" + remoteexec.DefaultImage
+
 func getRBEVars(ctx Context, config Config) map[string]string {
 	vars := map[string]string{
 		"RBE_log_dir":          config.rbeProxyLogsDir(),
@@ -68,7 +70,7 @@ func getRBEVars(ctx Context, config Config) map[string]string {
 		"RBE_download_tmp_dir": config.rbeDownloadTmpDir(),
 		// bump the maximum size a command's stdout can be before being truncated
 		"RBE_max_listen_size_kb": strconv.Itoa(16 * 1024),
-		"RBE_platform":           "container-image=" + remoteexec.DefaultImage,
+		"RBE_platform":           config.rbePlatform(),
 	}
 	if config.StartReproxy() {
 		name, err := config.rbeSockAddr(absPath(ctx, config.rbeTmpDir()))

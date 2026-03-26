@@ -1736,6 +1736,15 @@ func (c *configImpl) rbeProxyLogsDir() string {
 	return c.rbeTmpDir()
 }
 
+func (c *configImpl) rbePlatform() string {
+	for _, f := range []string{"RBE_platform", "FLAG_platform"} {
+		if v, ok := c.environ.Get(f); ok {
+			return v
+		}
+	}
+	return defaultRBEPlatform
+}
+
 func (c *configImpl) rbeDownloadTmpDir() string {
 	for _, f := range []string{"RBE_download_tmp_dir", "FLAG_download_tmp_dir"} {
 		if v, ok := c.environ.Get(f); ok {
