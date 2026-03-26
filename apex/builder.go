@@ -58,32 +58,6 @@ func init() {
 		})
 	}
 	hostBinToolVariableWithPrebuilt("aapt2", "prebuilts/sdk/tools", "aapt2")
-	pctx.HostBinToolVariable("avbtool", "avbtool")
-	pctx.HostBinToolVariable("e2fsdroid", "e2fsdroid")
-	pctx.HostBinToolVariable("merge_zips", "merge_zips")
-	pctx.HostBinToolVariable("mke2fs", "mke2fs")
-	pctx.HostBinToolVariable("resize2fs", "resize2fs")
-	pctx.HostBinToolVariable("sefcontext_compile", "sefcontext_compile")
-	pctx.HostBinToolVariable("soong_zip", "soong_zip")
-	pctx.HostBinToolVariable("zip2zip", "zip2zip")
-	pctx.HostBinToolVariable("zipalign", "zipalign")
-	pctx.HostBinToolVariable("jsonmodify", "jsonmodify")
-	pctx.HostBinToolVariable("conv_apex_manifest", "conv_apex_manifest")
-	pctx.HostBinToolVariable("extract_apks", "extract_apks")
-	pctx.HostBinToolVariable("make_f2fs", "make_f2fs")
-	pctx.HostBinToolVariable("sload_f2fs", "sload_f2fs")
-	pctx.HostBinToolVariable("make_erofs", "mkfs.erofs")
-	pctx.HostBinToolVariable("apex_compression_tool", "apex_compression_tool")
-	pctx.HostBinToolVariable("dexdeps", "dexdeps")
-	pctx.HostBinToolVariable("apex_ls", "apex-ls")
-	pctx.HostBinToolVariable("apex_sepolicy_tests", "apex_sepolicy_tests")
-	pctx.HostBinToolVariable("deapexer", "deapexer")
-	pctx.HostBinToolVariable("debugfs", "debugfs")
-	pctx.HostBinToolVariable("fsck_erofs", "fsck.erofs")
-	pctx.HostBinToolVariable("conv_linker_config", "conv_linker_config")
-	pctx.HostBinToolVariable("apex_elf_checker", "apex_elf_checker")
-	pctx.HostBinToolVariable("aconfig", "aconfig")
-	pctx.HostBinToolVariable("host_apex_verifier", "host_apex_verifier")
 	pctx.SourcePathVariable("openssl", "prebuilts/build-tools/${android.HostPrebuiltTag}/bin/openssl")
 }
 
@@ -273,7 +247,6 @@ var (
 			android.Touch, ` ${out} && `,
 			android.Rm, ` -rf ${out}.image`,
 		),
-		CommandDeps: []string{"${conv_linker_config}"},
 		Description: "run apex_linkerconfig_validation",
 	}, "image_zip")
 
