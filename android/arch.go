@@ -560,6 +560,9 @@ func productInstalledModules(ctx BaseModuleContext, makefile string) *map[string
 		if UncheckedFinalApiLevel(34).GreaterThanOrEqualTo(ctx.DeviceConfig().ShippingApiLevel()) {
 			addListEntriesToMap(productPkg.ProductPackagesShippingApiLevel34)
 		}
+		// host packages
+		addListEntriesToMap(ctx.Config().ProductVariables().ProductHostPackages)
+
 		return &allInstalledModules
 
 	}).(*map[string]bool)
