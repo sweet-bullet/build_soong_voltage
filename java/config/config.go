@@ -300,29 +300,21 @@ func JavadocCmd(ctx android.PathContext) android.SourcePath {
 }
 
 func javaTool(ctx android.PathContext, tool string) android.SourcePath {
-	type javaToolKey string
-
-	key := android.NewCustomOnceKey(javaToolKey(tool))
-
-	return ctx.Config().OnceSourcePath(key, func() android.SourcePath {
-		return javaToolchain(ctx).Join(ctx, tool)
-	})
-
+	return javaToolchain(ctx).Join(ctx, tool)
 }
 
 var javaToolchainKey = android.NewOnceKey("javaToolchain")
 
 func javaToolchain(ctx android.PathContext) android.SourcePath {
-	return ctx.Config().OnceSourcePath(javaToolchainKey, func() android.SourcePath {
-		return javaHome(ctx).Join(ctx, "bin")
-	})
+	return javaHome(ctx).Join(ctx, "bin")
 }
 
 var javaHomeKey = android.NewOnceKey("javaHome")
 
 func javaHome(ctx android.PathContext) android.SourcePath {
-	return ctx.Config().OnceSourcePath(javaHomeKey, func() android.SourcePath {
+	path := ctx.Config().Once(javaHomeKey, func() interface{} {
 		// This is set up and guaranteed by soong_ui
-		return android.PathForSource(ctx, ctx.Config().Getenv("ANDROID_JAVA_HOME"))
-	})
+		return ctx.Config().Getenv("ANDROID_JAVA_HOME")
+	}).(string)
+	return android.PathForSource(ctx, path)
 }

@@ -695,7 +695,7 @@ func Rustdoc(ctx ModuleContext, main android.Path, deps PathDeps,
 
 func toolchainImplicitsPhony(ctx android.ModuleContext) android.Path {
 	rustPath := config.RustPath(ctx)
-	clangPath := cc_config.ClangPathNoOnce(ctx, "").String()
+	clangPath := cc_config.ClangPath(ctx, "").String()
 
 	return ctx.CreateNinjaPhonyOnce("rustToolchainImplicits", []string{
 		filepath.Join(rustPath, "lib/librustc_driver-*.so"),

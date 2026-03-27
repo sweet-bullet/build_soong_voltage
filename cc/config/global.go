@@ -596,42 +596,36 @@ func init() {
 
 var HostPrebuiltTag = pctx.VariableConfigMethod("HostPrebuiltTag", android.Config.PrebuiltOS)
 
+// ClangPath returns the path to a tool in the LLVM prebuilts directory.
+//
+// The environment variable configuration is cached via a config.Once(), but the path
+// recalculation via PathForSource() is performed every time. This is needed because
+// in incremental soong, the PathForSource() calls may add missing dependencies to a
+// module, and we don't want it to be nondeterministically whichever module calls this first.
 func ClangPath(ctx android.PathContext, file string) android.SourcePath {
-	type clangToolKey string
-
-	key := android.NewCustomOnceKey(clangToolKey(file))
-
-	return ctx.Config().OnceSourcePath(key, func() android.SourcePath {
-		return clangPath(ctx).Join(ctx, file)
-	})
-}
-
-// ClangPathNoOnce is the same as ClangPath, but will recalculate the path every time instead
-// of caching it via a config.Once(). This is needed because in incremental soong, the Getenv
-// calls need to be tracked per-module, and also the PathForSource() may add missing dependencies
-// to a module and we don't want it to be nondeterministically whichever module calls this first.
-func ClangPathNoOnce(ctx android.PathContext, file string) android.SourcePath {
-	return clangPathNoOnce(ctx).Join(ctx, file)
+	return clangPath(ctx).Join(ctx, file)
 }
 
 var clangPathKey = android.NewOnceKey("clangPath")
 
-func clangPath(ctx android.PathContext) android.SourcePath {
-	return ctx.Config().OnceSourcePath(clangPathKey, func() android.SourcePath {
-		return clangPathNoOnce(ctx)
-	})
+type clangPathResult struct {
+	clangBase    string
+	clangVersion string
 }
 
-func clangPathNoOnce(ctx android.PathContext) android.SourcePath {
-	clangBase := ClangDefaultBase
-	if override := ctx.Config().Getenv("LLVM_PREBUILTS_BASE"); override != "" {
-		clangBase = override
-	}
-	clangVersion := ClangVersion(ctx)
-	if override := ctx.Config().Getenv("LLVM_PREBUILTS_VERSION"); override != "" {
-		clangVersion = override
-	}
-	return android.PathForSource(ctx, clangBase, ctx.Config().PrebuiltOS(), clangVersion)
+func clangPath(ctx android.PathContext) android.SourcePath {
+	res := ctx.Config().Once(clangPathKey, func() interface{} {
+		clangBase := ClangDefaultBase
+		if override := ctx.Config().Getenv("LLVM_PREBUILTS_BASE"); override != "" {
+			clangBase = override
+		}
+		clangVersion := ClangVersion(ctx)
+		if override := ctx.Config().Getenv("LLVM_PREBUILTS_VERSION"); override != "" {
+			clangVersion = override
+		}
+		return clangPathResult{clangBase, clangVersion}
+	}).(clangPathResult)
+	return android.PathForSource(ctx, res.clangBase, ctx.Config().PrebuiltOS(), res.clangVersion)
 }
 
 func ClangVersion(ctx android.PathContext) string {
