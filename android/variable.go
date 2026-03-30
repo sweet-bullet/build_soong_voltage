@@ -280,6 +280,7 @@ type ProductVariables struct {
 	ExtraOtaRecoveryKeys                     []string `json:",omitempty"`
 	MainlineSepolicyDevCertificates          *string  `json:",omitempty"`
 	MainlineBluetoothSepolicyDevCertificates *string  `json:",omitempty"`
+	MainlineNfcSepolicyDevCertificates       *string  `json:",omitempty"`
 
 	AppsDefaultVersionName *string `json:",omitempty"`
 

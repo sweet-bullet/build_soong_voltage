@@ -1558,6 +1558,15 @@ func (c *config) MainlineBluetoothSepolicyDevCertificatesDir(ctx ModuleContext) 
 	return c.DefaultAppCertificateDir(ctx)
 }
 
+// Certificate for the Nfc module sepolicy context
+func (c *config) MainlineNfcSepolicyDevCertificatesDir(ctx ModuleContext) SourcePath {
+	cert := String(c.productVariables.MainlineNfcSepolicyDevCertificates)
+	if cert != "" {
+		return PathForSource(ctx, cert)
+	}
+	return c.DefaultAppCertificateDir(ctx)
+}
+
 // AllowMissingDependencies configures Blueprint/Soong to not fail when modules
 // are configured to depend on non-existent modules. Note that this does not
 // affect missing input dependencies at the Ninja level.
