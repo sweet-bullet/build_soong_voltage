@@ -798,10 +798,10 @@ func (t emptyClasspathContentsTransformation) transformModule(module *bpModule) 
 		"prebuilt_systemserverclasspath_fragment",
 	}
 	if module != nil && android.InList(module.moduleType, classpathModuleTypes) {
-		if contents, ok := module.bpPropertySet.properties["contents"].([]string); ok {
-			if len(contents) == 0 {
-				return nil
-			}
+		contents, contentsOk := module.bpPropertySet.properties["contents"].([]string)
+		standaloneContents, standaloneContentsOk := module.bpPropertySet.properties["standalone_contents"].([]string)
+		if (!contentsOk || len(contents) == 0) && (!standaloneContentsOk || len(standaloneContents) == 0) {
+			return nil
 		}
 	}
 	return module
