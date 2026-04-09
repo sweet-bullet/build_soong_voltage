@@ -342,6 +342,20 @@ func checkAndroidBpContents(expected string) snapshotBuildInfoChecker {
 	}
 }
 
+func checkAndroidBpDoesContain(expected string) snapshotBuildInfoChecker {
+	return func(info *snapshotBuildInfo) {
+		info.t.Helper()
+		android.AssertStringDoesContain(info.t, "Android.bp contents do not match", info.androidBpContents, expected)
+	}
+}
+
+func checkAndroidBpDoesNotContain(unexpected string) snapshotBuildInfoChecker {
+	return func(info *snapshotBuildInfo) {
+		info.t.Helper()
+		android.AssertStringDoesNotContain(info.t, "Android.bp contents do not match", info.androidBpContents, unexpected)
+	}
+}
+
 // Check that the snapshot's copy rules are correct.
 //
 // The copy rules are formatted as <src> -> <dest>, one per line and then compared

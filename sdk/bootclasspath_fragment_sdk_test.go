@@ -1354,3 +1354,218 @@ func TestSnapshotWithEmptyBootClasspathFragment(t *testing.T) {
 
 	CheckSnapshot(t, result, "mysdk", "", checkAndroidBpContents(`// This is auto-generated. DO NOT EDIT.`))
 }
+
+func TestSnapshotWithBootclasspathFragment_MinSdkVersionFiltering(t *testing.T) {
+	t.Parallel()
+	bp := `
+		sdk {
+			name: "mysdk",
+			bootclasspath_fragments: ["mybcpfragment"],
+			java_sdk_libs: ["mysdklib"],
+		}
+
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			min_sdk_version: "S",
+			bootclasspath_fragments: ["mybcpfragment"],
+		}
+
+		bootclasspath_fragment {
+			name: "mybcpfragment",
+			apex_available: ["myapex"],
+			contents: ["mysdklib"],
+			min_sdk_version: "Tiramisu",
+			hidden_api: {
+				split_packages: ["*"],
+			},
+		}
+
+		java_sdk_library {
+			name: "mysdklib",
+			apex_available: ["myapex"],
+			srcs: ["Test.java"],
+			compile_dex: true,
+			min_sdk_version: "Tiramisu",
+			unsafe_ignore_missing_latest_api: true,
+		}
+	`
+
+	preparer := android.GroupFixturePreparers(
+		prepareForSdkTestWithApex,
+		prepareForSdkTestWithJava,
+		java.PrepareForTestWithJavaDefaultModules,
+		java.PrepareForTestWithJavaSdkLibraryFiles,
+		java.PrepareForTestWithDexpreopt,
+		fixtureAddPlatformBootclasspathForBootclasspathFragment("myapex", "mybcpfragment"),
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.Platform_version_active_codenames = []string{"VanillaIceCream"}
+		}),
+	)
+
+	t.Run("target Tiramisu - fragment included", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE": "Tiramisu",
+			}),
+			android.FixtureWithRootAndroidBp(bp),
+		).RunTest(t)
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpDoesContain("prebuilt_bootclasspath_fragment {\n    name: \"mybcpfragment\","),
+		)
+	})
+
+	t.Run("target S - fragment excluded", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE": "S",
+			}),
+			android.FixtureWithRootAndroidBp(bp),
+		).RunTest(t)
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpDoesNotContain(`prebuilt_bootclasspath_fragment`),
+			checkAndroidBpDoesNotContain(`"mybcpfragment"`),
+		)
+	})
+}
+
+func TestSnapshotWithBootclasspathFragment_FragmentsMinSdkVersionFiltering(t *testing.T) {
+	t.Parallel()
+	bp := `
+		sdk {
+			name: "mysdk",
+			bootclasspath_fragments: ["mybcpfragment"],
+			java_boot_libs: ["mybootlib"],
+		}
+
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			min_sdk_version: "S",
+			bootclasspath_fragments: ["mybcpfragment"],
+		}
+
+		bootclasspath_fragment {
+			name: "mybcpfragment",
+			apex_available: ["myapex"],
+			contents: ["mybootlib"],
+			fragments: [
+				{
+					apex: "otherapex",
+					module: "otherbcpfragment",
+				},
+			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
+		}
+
+		java_library {
+			name: "mybootlib",
+			apex_available: ["myapex"],
+			srcs: ["Test.java"],
+			system_modules: "none",
+			sdk_version: "none",
+			min_sdk_version: "S",
+			compile_dex: true,
+		}
+
+		sdk {
+			name: "othersdk",
+			bootclasspath_fragments: ["otherbcpfragment"],
+			java_sdk_libs: ["othersdklib"],
+		}
+
+		apex {
+			name: "otherapex",
+			key: "otherapex.key",
+			bootclasspath_fragments: ["otherbcpfragment"],
+			min_sdk_version: "S",
+		}
+
+		apex_key {
+			name: "otherapex.key",
+			public_key: "otherapex.avbpubkey",
+			private_key: "otherapex.pem",
+		}
+
+		bootclasspath_fragment {
+			name: "otherbcpfragment",
+			image_name: "art",
+			contents: ["othersdklib"],
+			apex_available: ["otherapex"],
+			min_sdk_version: "Tiramisu",
+			hidden_api: {
+				split_packages: ["*"],
+			},
+		}
+
+		java_sdk_library {
+			name: "othersdklib",
+			apex_available: ["otherapex"],
+			srcs: ["Test.java"],
+			compile_dex: true,
+			min_sdk_version: "Tiramisu",
+			unsafe_ignore_missing_latest_api: true,
+		}
+	`
+
+	preparer := android.GroupFixturePreparers(
+		prepareForSdkTestWithApex,
+		prepareForSdkTestWithJava,
+		java.PrepareForTestWithJavaDefaultModules,
+		java.PrepareForTestWithJavaSdkLibraryFiles,
+		java.PrepareForTestWithDexpreopt,
+		android.FixtureMergeMockFs(android.MockFS{
+			"otherapex.avbpubkey": nil,
+			"otherapex.pem":       nil,
+			"system/sepolicy/apex/otherapex-file_contexts": nil,
+		}),
+		fixtureAddPlatformBootclasspathForBootclasspathFragmentWithExtra(
+			"otherapex", "otherbcpfragment", ""),
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.Platform_version_active_codenames = []string{"VanillaIceCream"}
+		}),
+	)
+
+	t.Run("target Tiramisu - fragment reference included", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE": "Tiramisu",
+			}),
+			android.FixtureWithRootAndroidBp(bp),
+		).RunTest(t)
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpDoesContain("prebuilt_bootclasspath_fragment {\n    name: \"mybcpfragment\","),
+			checkAndroidBpDoesContain(`
+    fragments: [
+        {
+            apex: "otherapex",
+            module: "otherbcpfragment",
+        },
+    ],`),
+		)
+	})
+
+	t.Run("target S - fragment reference excluded", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE": "S",
+			}),
+			android.FixtureWithRootAndroidBp(bp),
+		).RunTest(t)
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpDoesContain("prebuilt_bootclasspath_fragment {\n    name: \"mybcpfragment\","),
+			checkAndroidBpDoesNotContain(`fragments: [`),
+			checkAndroidBpDoesNotContain(`"otherbcpfragment"`),
+		)
+	})
+}

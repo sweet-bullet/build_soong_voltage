@@ -48,8 +48,6 @@ var SystemServerClasspathFragmentSdkMemberType = &systemServerClasspathFragmentM
 }
 
 type platformSystemServerClasspathModule struct {
-	android.ModuleBase
-
 	ClasspathFragmentBase
 }
 
@@ -91,10 +89,8 @@ func (p *platformSystemServerClasspathModule) standaloneConfiguredJars(ctx andro
 }
 
 type SystemServerClasspathModule struct {
-	android.ModuleBase
-	android.ApexModuleBase
-
 	ClasspathFragmentBase
+	android.ApexModuleBase
 
 	properties systemServerClasspathFragmentProperties
 }
@@ -108,10 +104,6 @@ type SystemServerClasspathInfo struct {
 }
 
 var SystemServerClasspathInfoProvider = blueprint.NewProvider[SystemServerClasspathInfo]()
-
-func (m *SystemServerClasspathModule) MinSdkVersionSupported(ctx android.BaseModuleContext) android.ApiLevel {
-	return android.MinApiLevel
-}
 
 type systemServerClasspathFragmentProperties struct {
 	// List of system_server classpath jars, could be either java_library, or java_sdk_library.
@@ -139,6 +131,7 @@ func (m *SystemServerClasspathModule) UniqueApexVariations() bool {
 }
 
 func (s *SystemServerClasspathModule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
+	s.checkMinSdkVersionConstraint(ctx)
 	if len(s.properties.Contents.GetOrDefault(ctx, nil)) == 0 && len(s.properties.Standalone_contents.GetOrDefault(ctx, nil)) == 0 {
 		ctx.PropertyErrorf("contents", "Either contents or standalone_contents needs to be non-empty")
 	}
@@ -336,13 +329,26 @@ type systemServerClasspathFragmentSdkMemberProperties struct {
 	//
 	// The order does not matter.
 	Standalone_contents []string
+
+	// The value of the min_sdk_version property, translated into a number where possible.
+	MinSdkVersion *string `supported_build_releases:"CinnamonBun+"`
 }
 
 func (s *systemServerClasspathFragmentSdkMemberProperties) PopulateFromVariant(ctx android.SdkMemberContext, variant android.ModuleProxy) {
-	module := android.OtherModuleProviderOrDefault(ctx.SdkModuleContext(), variant, SystemServerClasspathInfoProvider)
+	mctx := ctx.SdkModuleContext()
+	module := android.OtherModuleProviderOrDefault(mctx, variant, SystemServerClasspathInfoProvider)
 
 	s.Contents = module.Contents
 	s.Standalone_contents = module.StandaloneContents
+
+	commonInfo := android.OtherModulePointerProviderOrDefault(mctx, variant, android.CommonModuleInfoProvider)
+	if commonInfo.MinSdkVersion.ApiLevel != nil {
+		canonical, err := android.ReplaceFinalizedCodenames(mctx.Config(), commonInfo.MinSdkVersion.ApiLevel.String())
+		if err != nil {
+			ctx.ModuleErrorf("%s", err)
+		}
+		s.MinSdkVersion = proptools.StringPtr(canonical)
+	}
 }
 
 func (s *systemServerClasspathFragmentSdkMemberProperties) AddToPropertySet(ctx android.SdkMemberContext, propertySet android.BpPropertySet) {
@@ -355,6 +361,10 @@ func (s *systemServerClasspathFragmentSdkMemberProperties) AddToPropertySet(ctx 
 
 	if len(s.Standalone_contents) > 0 {
 		propertySet.AddPropertyWithTag("standalone_contents", s.Standalone_contents, requiredMemberDependency)
+	}
+
+	if s.MinSdkVersion != nil && *s.MinSdkVersion != "" {
+		propertySet.AddProperty("min_sdk_version", *s.MinSdkVersion)
 	}
 }
 
@@ -391,6 +401,7 @@ func prebuiltSystemServerClasspathModuleFactory() android.Module {
 	// array.
 	android.InitPrebuiltModule(m, &[]string{"placeholder"})
 	android.InitApexModule(m)
+	initClasspathFragment(m, SYSTEMSERVERCLASSPATH)
 	android.InitAndroidArchModule(m, android.DeviceSupported, android.MultilibCommon)
 	return m
 }

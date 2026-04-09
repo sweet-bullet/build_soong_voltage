@@ -45,7 +45,6 @@ var platformBootclasspathImplLibDepTag platformBootclasspathImplLibDepTagType
 var _ android.ExcludeFromVisibilityEnforcementTag = platformBootclasspathImplLibDepTag
 
 type platformBootclasspathModule struct {
-	android.ModuleBase
 	ClasspathFragmentBase
 	// TODO(b/461815001): remove this and replace usage of WalkDepsProxy with
 	//  VisitDirectDepsProxy and DepSets.

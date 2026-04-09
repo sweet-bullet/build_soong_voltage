@@ -441,3 +441,77 @@ prebuilt_systemserverclasspath_fragment {
 		`, `latest`, expectedLatestSnapshot)
 	})
 }
+
+func TestSnapshotWithSystemServerClasspathFragment_MinSdkVersionFiltering(t *testing.T) {
+	t.Parallel()
+	bp := `
+		sdk {
+			name: "mysdk",
+			systemserverclasspath_fragments: ["mysscpfragment"],
+			java_systemserver_libs: ["mylib"],
+		}
+
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			min_sdk_version: "S",
+			systemserverclasspath_fragments: ["mysscpfragment"],
+		}
+
+		systemserverclasspath_fragment {
+			name: "mysscpfragment",
+			apex_available: ["myapex"],
+			contents: ["mylib"],
+			min_sdk_version: "Tiramisu",
+		}
+
+		java_library {
+			name: "mylib",
+			apex_available: ["myapex"],
+			srcs: ["Test.java"],
+			system_modules: "none",
+			sdk_version: "none",
+			min_sdk_version: "S",
+			compile_dex: true,
+		}
+	`
+
+	preparer := android.GroupFixturePreparers(
+		prepareForSdkTestWithApex,
+		prepareForSdkTestWithJava,
+		java.PrepareForTestWithJavaDefaultModules,
+		java.PrepareForTestWithDexpreopt,
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.Platform_version_active_codenames = []string{"VanillaIceCream"}
+		}),
+	)
+
+	t.Run("target Tiramisu - fragment included", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE": "Tiramisu",
+			}),
+			android.FixtureWithRootAndroidBp(bp),
+		).RunTest(t)
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpDoesContain("prebuilt_systemserverclasspath_fragment {\n    name: \"mysscpfragment\","),
+		)
+	})
+
+	t.Run("target S - fragment excluded", func(t *testing.T) {
+		result := android.GroupFixturePreparers(
+			preparer,
+			android.FixtureMergeEnv(map[string]string{
+				"SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE": "S",
+			}),
+			android.FixtureWithRootAndroidBp(bp),
+		).RunTest(t)
+
+		CheckSnapshot(t, result, "mysdk", "",
+			checkAndroidBpDoesNotContain(`prebuilt_systemserverclasspath_fragment`),
+			checkAndroidBpDoesNotContain(`"mysscpfragment"`),
+		)
+	})
+}

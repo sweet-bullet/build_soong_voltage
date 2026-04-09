@@ -456,6 +456,48 @@ func TestPrebuiltStandaloneSystemserverclasspathFragmentContents(t *testing.T) {
 	assertProfileGuidedPrebuilt(t, ctx, "myapex", "bar", true)
 }
 
+func TestSystemServerClasspathFragment_LowerMinSdkVersionThanApex(t *testing.T) {
+	t.Parallel()
+	android.GroupFixturePreparers(
+		prepareForTestWithSystemserverclasspathFragment,
+		prepareForTestWithMyapex,
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.Platform_version_active_codenames = []string{"VanillaIceCream"}
+		}),
+	).ExtendWithErrorHandler(android.FixtureExpectsAtLeastOneErrorMatchingPattern(
+		`fragment min_sdk_version 30 lower than its APEX \(31\)`)).
+		RunTestWithBp(t, `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			systemserverclasspath_fragments: ["mysystemserverclasspathfragment"],
+			min_sdk_version: "31",
+			updatable: false,
+		}
+
+		apex_key {
+			name: "myapex.key",
+			public_key: "testkey.avbpubkey",
+			private_key: "testkey.pem",
+		}
+
+		systemserverclasspath_fragment {
+			name: "mysystemserverclasspathfragment",
+			contents: ["mysystemserverclasspathlib"],
+			min_sdk_version: "30",
+			apex_available: ["myapex"],
+		}
+
+		java_library {
+			name: "mysystemserverclasspathlib",
+			srcs: ["Test.java"],
+			compile_dex: true,
+			min_sdk_version: "30",
+			apex_available: ["myapex"],
+		}
+	`)
+}
+
 func assertProfileGuided(t *testing.T, ctx *android.TestContext, moduleName string, variant string, expected bool) {
 	dexpreopt := ctx.ModuleForTests(t, moduleName, variant).Rule("dexpreopt")
 	actual := strings.Contains(dexpreopt.RuleParams.Command, "--profile-file=")

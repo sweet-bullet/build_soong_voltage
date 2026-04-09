@@ -254,10 +254,9 @@ type SourceOnlyBootclasspathProperties struct {
 }
 
 type BootclasspathFragmentModule struct {
-	android.ModuleBase
+	ClasspathFragmentBase
 	android.DefaultableModuleBase
 	android.ApexModuleBase
-	ClasspathFragmentBase
 	blueprint.ModuleUsesIncrementalWalkDeps
 
 	// True if this fragment is for testing purposes.
@@ -482,10 +481,6 @@ func (b BootclasspathFragmentDepInSameApexChecker) OutgoingDepIsInSameApex(tag b
 	panic(fmt.Errorf("boot_image module should not have a dependency tag %s", android.PrettyPrintTag(tag)))
 }
 
-func (m *BootclasspathFragmentModule) MinSdkVersionSupported(ctx android.BaseModuleContext) android.ApiLevel {
-	return android.MinApiLevel
-}
-
 // ComponentDepsMutator adds dependencies onto modules before any prebuilt modules without a
 // corresponding source module are renamed. This means that adding a dependency using a name without
 // a prebuilt_ prefix will always resolve to a source module and when using a name with that prefix
@@ -549,6 +544,8 @@ func (b *BootclasspathFragmentModule) GenerateAndroidBuildActions(ctx android.Mo
 		b.bootclasspathFragmentPropertyCheck(ctx)
 	}
 
+	b.checkMinSdkVersionConstraint(ctx)
+
 	// Generate classpaths.proto config
 	classpathProtoOutputPath := b.generateClasspathProtoBuildActions(ctx)
 
@@ -565,7 +562,7 @@ func (b *BootclasspathFragmentModule) GenerateAndroidBuildActions(ctx android.Mo
 		}
 	})
 
-	fragments, _ := gatherFragments(ctx)
+	fragments, fragmentsMap := gatherFragments(ctx)
 
 	// Perform hidden API processing.
 	hiddenAPIOutput := b.generateHiddenAPIBuildActions(ctx, contents, fragments)
@@ -609,12 +606,14 @@ func (b *BootclasspathFragmentModule) GenerateAndroidBuildActions(ctx android.Mo
 		b.HideFromMake()
 	}
 
+	filteredFragmentProperties := b.properties.BootclasspathFragmentsDepsProperties.filterForSdkSnapshot(ctx, fragmentsMap)
+
 	android.SetProvider(ctx, BootclasspathFragmentInfoProvider, BootclasspathFragmentInfo{
 		ImageName:               b.properties.Image_name,
 		Contents:                b.properties.Contents.GetOrDefault(ctx, nil),
 		ApiStubLibs:             b.properties.Api.Stub_libs.GetOrDefault(ctx, nil),
 		CorePlatformApiStubLibs: b.properties.Core_platform_api.Stub_libs.GetOrDefault(ctx, nil),
-		Fragments:               b.properties.Fragments,
+		Fragments:               filteredFragmentProperties,
 		ProfilePathOnHost:       b.profilePath,
 		DexPreoptProfileGuided:  ctx.Config().GetBuildFlagBool("RELEASE_ART_COMPILE_BCP_APEX_SPEED_PROFILE") && b.properties.Dex_preopt.Profile.GetOrDefault(ctx, "") != "",
 	})
@@ -1044,6 +1043,9 @@ type bootclasspathFragmentSdkMemberProperties struct {
 
 	// Whether to use profile-guided dexpreopt.
 	DexPreoptProfileGuided bool `supported_build_releases:"CinnamonBun+"`
+
+	// The value of the min_sdk_version property, translated into a number where possible.
+	MinSdkVersion *string `supported_build_releases:"CinnamonBun+"`
 }
 
 func (b *bootclasspathFragmentSdkMemberProperties) PopulateFromVariant(ctx android.SdkMemberContext, variant android.ModuleProxy) {
@@ -1068,6 +1070,15 @@ func (b *bootclasspathFragmentSdkMemberProperties) PopulateFromVariant(ctx andro
 	b.Signature_patterns_path = android.OptionalPathForPath(hiddenAPIInfo.SignaturePatternsPath)
 	b.Filtered_stub_flags_path = android.OptionalPathForPath(hiddenAPIInfo.FilteredStubFlagsPath)
 	b.Filtered_flags_path = android.OptionalPathForPath(hiddenAPIInfo.FilteredFlagsPath)
+
+	commonInfo := android.OtherModulePointerProviderOrDefault(mctx, variant, android.CommonModuleInfoProvider)
+	if commonInfo.MinSdkVersion.ApiLevel != nil {
+		canonical, err := android.ReplaceFinalizedCodenames(mctx.Config(), commonInfo.MinSdkVersion.ApiLevel.String())
+		if err != nil {
+			ctx.ModuleErrorf("%s", err)
+		}
+		b.MinSdkVersion = proptools.StringPtr(canonical)
+	}
 
 	// Copy stub_libs properties.
 	b.Stub_libs = module.ApiStubLibs
@@ -1098,6 +1109,9 @@ func (b *bootclasspathFragmentSdkMemberProperties) AddToPropertySet(ctx android.
 	if len(b.Core_platform_stub_libs) > 0 {
 		corePlatformApiPropertySet := propertySet.AddPropertySet("core_platform_api")
 		corePlatformApiPropertySet.AddPropertyWithTag("stub_libs", b.Core_platform_stub_libs, requiredMemberDependency)
+	}
+	if b.MinSdkVersion != nil && *b.MinSdkVersion != "" {
+		propertySet.AddProperty("min_sdk_version", *b.MinSdkVersion)
 	}
 	if len(b.Fragments) > 0 {
 		propertySet.AddProperty("fragments", b.Fragments)
@@ -1290,6 +1304,7 @@ func prebuiltBootclasspathFragmentFactory() android.Module {
 	// array.
 	android.InitPrebuiltModule(m, &[]string{"placeholder"})
 	android.InitApexModule(m)
+	initClasspathFragment(m, BOOTCLASSPATH)
 	android.InitAndroidArchModule(m, android.HostAndDeviceSupported, android.MultilibCommon)
 	android.InitDefaultableModule(m)
 
